@@ -1,6 +1,6 @@
 #pragma once
 
-#define MAX_REFLECTION_DEPTH 10
+#define MAX_REFLECTION_DEPTH 4
 #define SAMPLES_PER_PIXEL 4
 
 
@@ -40,7 +40,7 @@ void PutPixel(V4 * bitmap, int x, int y, V4 color)
 
 V4 Schlick(V4 rf0, float theta)
 {
-	V4 reflectance = rf0 + (V4{1.0f, 1.0f, 1.0f, 1.0f} - rf0) * pow(1 - max(0, cos(theta)), 5);
+	V4 reflectance = rf0 + (V4{1.0f, 1.0f, 1.0f, 1.0f} -rf0) * pow(1 - max(0, cos(theta)), 5);
 	return reflectance;
 }
 
@@ -83,50 +83,52 @@ bool TraceRay(Ray r, Scene * s, Intersection * out_ix, Object ** out_io)
 	return result;
 }
 
-V4 TraceReflectionPath(Ray ray, Scene * scene, int depth)
+V4 ComputeRadiance(Ray ray, Scene * scene, int depth)
 {
-	V4 radiance = {0.0f, 0.0f, 0.0f, 0.0f};
-
-	Intersection ix = {};
-	Object * io = 0;
+	V4 radiance = {};
+	Intersection ix;
+	Object * io = nullptr;
 	Light * light = &scene->lights[0];
 
 	if(TraceRay(ray, scene, &ix, &io))
 	{
-		if(io->material.reflectivity == 0)
-		{
-			V3 toLightRefl = Normalize(light->position - ix.point);
-			float reflLightDistanceSq = LengthSq(light->position - ix.point);
-			float reflNdL = max(0, Dot(ix.normal, toLightRefl));
+		V3 toLight = Normalize(light->position - ix.point);
+		float lightDistanceSq = LengthSq(light->position - ix.point);
+		//V3 toCam = -dir;
 
-			Ray reflShadowRay = {ix.point, toLightRefl};
-					
-			Intersection shadowIx;
-			float reflShadowFactor = 1.0f; // fully lit
-			if(TraceRay(reflShadowRay, scene, &shadowIx, 0))
+		// diffuse
+		float ndl = fmaxf(0, Dot(ix.normal, toLight));
+		//V4 diffuseRadiance = io->material.diffuse * (light->intensity / lightDistanceSq);
+
+		// shadow
+		Ray shadowRay = {ix.point, toLight};
+		Intersection shadowIx;
+		float shadowFactor = 1.0f; // fully lit
+		if(TraceRay(shadowRay, scene, &shadowIx, 0))
+		{
+			if(shadowIx.t*shadowIx.t < lightDistanceSq)
 			{
-				if(shadowIx.t*shadowIx.t < LengthSq(light->position - ix.point))
-				{
-					reflShadowFactor = 0.0f;
-				}
+				shadowFactor = 0.0f;
 			}
-
-			V4 reflRadiance = ComponentMultiply(io->material.diffuse / PI, (light->color * light->intensity / reflLightDistanceSq) * reflNdL);
-			reflRadiance = reflRadiance * reflShadowFactor;
-			radiance = reflRadiance;
-			//radiance = {1.0f, 0.0f, 0.0f, 0.0f};
-			//Lerp(diffuseRadiance*shadowFactor*ndl, io->material.exponent, reflectedRadiance*ndr/*?*/);
 		}
-		else
+
+		V4 diffuseRadiance = ComponentMultiply(io->material.diffuse / PI, (light->color * light->intensity / lightDistanceSq) * ndl);
+
+		// reflection
+		V4 reflectedRadiance = {};
+
+		if(io->material.reflectivity > 0 && depth < MAX_REFLECTION_DEPTH)
 		{
-			V3 reflectionVector = Reflect(ray.d, ix.normal);
+			V3 reflectionVector = Normalize(Reflect(ray.d, ix.normal));
 			Ray reflectionRay = {ix.point, reflectionVector};
-			if(depth < MAX_REFLECTION_DEPTH)
-			{
-				radiance = TraceReflectionPath(reflectionRay, scene, depth + 1);
-				//radiance = {1.0f, 0.0f, 0.0f, 0.0f};
-			}
+			int reflectionDepth = 0;
+			reflectedRadiance = ComputeRadiance(reflectionRay, scene, depth + 1);
 		}
+
+		radiance = Lerp(diffuseRadiance*shadowFactor*ndl, io->material.reflectivity, reflectedRadiance);
 	}
+
 	return radiance;
 }
+
+

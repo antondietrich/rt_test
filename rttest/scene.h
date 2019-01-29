@@ -66,8 +66,8 @@ void InitScene()
 	Material matBottom = matBase;
 	Material matTop = matBase;
 
-#if 0
-	matBottom.reflectivity = 1.0f;
+#if 1
+	matBottom.reflectivity = 0.5f;
 #endif
 
 #if 0

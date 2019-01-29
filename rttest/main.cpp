@@ -30,7 +30,7 @@ V4 * bitmapHDR = nullptr;
 
 V4 ComputeRadianceForRay(Ray r, Scene * s)
 {
-	return V4{0};
+	return V4{};
 }
 
 int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdshow)
@@ -106,7 +106,7 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 
 	// Left-handed, +X is front, +Y is right, +Z is up
 	Camera cam;
-	cam.position = {-10, 0, 3};
+	cam.position = {-10.0f, 0.0f, 3.0f};
 	cam.direction = {1, 0, 0};
 	cam.up = {0, 0, 1};
 	cam.filmWidth = 0.35f;
@@ -376,9 +376,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 						// gamma
 						//if(x < WIDTH/2)
 						{
-							sample.r = (float)pow(sample.r, 0.45);
-							sample.g = (float)pow(sample.g, 0.45);
-							sample.b = (float)pow(sample.b, 0.45);
+							sample.r = (float)pow(sample.r, 0.45f);
+							sample.g = (float)pow(sample.g, 0.45f);
+							sample.b = (float)pow(sample.b, 0.45f);
 						}
 						uint32_t color = RGBA32(sample.r, sample.g, sample.b, sample.a);
 						*(row + x) = color;

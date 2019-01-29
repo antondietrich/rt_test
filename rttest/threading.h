@@ -39,7 +39,7 @@ void PerformRenderJob(RenderJob * job)
 	{
 		for(int x = job->x0; x < job->x1; ++x)
 		{
-			V4 totalRadiance = {};
+			V4 outgoingRadiance = {};
 
 			for(int s = 0; s < job->spp; ++s)
 			{
@@ -53,55 +53,13 @@ void PerformRenderJob(RenderJob * job)
 				ray.o = job->camera->position;
 				ray.d = dir;
 
-
-				// albedo = ix.object.material
-
-				//V4 diffuse = ComputeRadianceForRay(ray, &scene);
-				//V4 reflection = ComputeRadianceForRay(reflectionRay, &scene);
-
-				Intersection ix;
-				Object * io = nullptr;
-				Light * light = &scene.lights[0];
-
-				if(TraceRay(ray, &scene, &ix, &io))
-				{
-					V3 toLight = Normalize(light->position - ix.point);
-					float lightDistanceSq = LengthSq(light->position - ix.point);
-					V3 toCam = -dir;
-
-					// diffuse
-					float ndl = fmaxf(0, Dot(ix.normal, toLight));
-					//V4 diffuseRadiance = io->material.diffuse * (light->intensity / lightDistanceSq);
-
-					// shadow
-					Ray shadowRay = {ix.point, toLight};
-					Intersection shadowIx;
-					float shadowFactor = 1.0f; // fully lit
-					if(TraceRay(shadowRay, &scene, &shadowIx, 0))
-					{
-						if(shadowIx.t*shadowIx.t < lightDistanceSq)
-						{
-							shadowFactor = 0.0f;
-						}
-					}
-
-					// reflection
-					V3 reflectionVector = Normalize(Reflect(ray.d, ix.normal));
-					Ray reflectionRay = {ix.point, reflectionVector};
-					int reflectionDepth = 0;
-
-
-					V4 diffuseRadiance = ComponentMultiply(io->material.diffuse / PI, (light->color * light->intensity / lightDistanceSq) * ndl);
-					V4 reflectedRadiance = TraceReflectionPath(reflectionRay, &scene, reflectionDepth);
-
-					//shadowFactor = 1.0f;
-					totalRadiance = ComponentAdd(totalRadiance, Lerp(diffuseRadiance*shadowFactor*ndl, io->material.reflectivity, reflectedRadiance));
-				}
+				V4 sampleRadiance = ComputeRadiance(ray, &scene, 0);
+				outgoingRadiance = ComponentAdd(outgoingRadiance, sampleRadiance);
 			}
 
-			totalRadiance = totalRadiance / job->spp;
+			outgoingRadiance = outgoingRadiance / (float)job->spp;
 			//*(rowHDR + x) = 
-			PutPixel(job->bitmap, x, y, totalRadiance);
+			PutPixel(job->bitmap, x, y, outgoingRadiance);
 		}
 		//rowHDR += job->viewportWidth;
 	}
