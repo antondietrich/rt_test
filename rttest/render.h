@@ -38,9 +38,9 @@ void PutPixel(V4 * bitmap, int x, int y, V4 color)
 	bitmap[y*1280 + x] = color;
 }
 
-V4 Schlick(V4 rf0, float theta)
+V4 Schlick(V4 rf0, float cosTheta)
 {
-	V4 reflectance = rf0 + (V4{1.0f, 1.0f, 1.0f, 1.0f} -rf0) * pow(1 - max(0, cos(theta)), 5);
+	V4 reflectance = rf0 + (V4::FromFloat(1.0f) - rf0) * pow(1 - max(0, cosTheta), 5);
 	return reflectance;
 }
 
@@ -94,7 +94,7 @@ V4 ComputeRadiance(Ray ray, Scene * scene, int depth)
 	{
 		V3 toLight = Normalize(light->position - ix.point);
 		float lightDistanceSq = LengthSq(light->position - ix.point);
-		//V3 toCam = -dir;
+		V3 toCam = -ray.d;
 
 		// diffuse
 		float ndl = fmaxf(0, Dot(ix.normal, toLight));
@@ -112,20 +112,24 @@ V4 ComputeRadiance(Ray ray, Scene * scene, int depth)
 			}
 		}
 
-		V4 diffuseRadiance = ComponentMultiply(io->material.diffuse / PI, (light->color * light->intensity / lightDistanceSq) * ndl);
+		V4 diffuseRadiance = {};
+		if(!io->material.isConductor)
+			diffuseRadiance = ComponentMultiply(io->material.diffuse / PI, (light->color * light->intensity / lightDistanceSq) * ndl);
 
 		// reflection
 		V4 reflectedRadiance = {};
+		V4 specularReflectance = {};
 
-		if(io->material.reflectivity > 0 && depth < MAX_REFLECTION_DEPTH)
+		if(depth < MAX_REFLECTION_DEPTH)
 		{
 			V3 reflectionVector = Normalize(Reflect(ray.d, ix.normal));
 			Ray reflectionRay = {ix.point, reflectionVector};
-			int reflectionDepth = 0;
-			reflectedRadiance = ComputeRadiance(reflectionRay, scene, depth + 1);
+			float cosTheta = Dot(ix.normal, reflectionVector);
+			specularReflectance = Schlick(io->material.rf0, cosTheta);
+			reflectedRadiance = cosTheta * ComputeRadiance(reflectionRay, scene, depth + 1);
 		}
-
-		radiance = Lerp(diffuseRadiance*shadowFactor*ndl, io->material.reflectivity, reflectedRadiance);
+		
+		radiance = ComponentMultiply(V4::FromFloat(1.0f) - specularReflectance, diffuseRadiance*shadowFactor) + ComponentMultiply(specularReflectance, reflectedRadiance);
 	}
 
 	return radiance;

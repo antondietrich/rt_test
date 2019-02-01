@@ -4,209 +4,13 @@
 
 #define EPSYLON 1e-4f
 
-inline float Lerp(float a, float t, float b)
-{
-	return (1.0f - t)*a + t*b;
-}
-
 inline float Saturate(float v)
 {
 	float result = min(max(v, 0), 1);;
 	return result;
 }
 
-//////////////////////////////////////////////////////////////////////////
-// Vector 2
 
-struct V2
-{
-	union
-	{
-		struct {float x, y;};
-		float v[2];
-	};
-};
-
-V2 operator+(const V2 & a, const V2 & b)
-{
-	V2 result = {a.x + b.x, a.y + b.y};
-	return result;
-}
-
-V2 operator-(const V2 & a, const V2 & b)
-{
-	V2 result = {a.x - b.x, a.y - b.y};
-	return result;
-}
-
-V2 operator*(const V2 & a, const float & c)
-{
-	V2 result = {a.x*c, a.y*c};
-	return result;
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Vector 3
-
-struct V3
-{
-	union
-	{
-		struct {float x, y, z;};
-		float v[3];
-	};
-};
-
-V3 operator+(const V3 & a, const V3 & b)
-{
-	V3 result = {a.x + b.x, a.y + b.y, a.z + b.z};
-	return result;
-}
-
-V3 operator-(const V3 & a, const V3 & b)
-{
-	V3 result = {a.x - b.x, a.y - b.y, a.z - b.z};
-	return result;
-}
-
-V3 operator-(const V3 & a)
-{
-	V3 result = {-a.x, -a.y, -a.z};
-	return result;
-}
-
-V3 operator*(const V3 & a, const float & c)
-{
-	V3 result = {a.x*c, a.y*c, a.z*c};
-	return result;
-}
-
-V3 operator/(const V3 & a, const float & c)
-{
-	V3 result = {a.x/c, a.y/c, a.z/c};
-	return result;
-}
-
-inline float Dot(V3 a, V3 b)
-{
-	float result = a.x*b.x + a.y*b.y + a.z*b.z;
-	return result;
-}
-
-inline V3 Cross(V3 a, V3 b)
-{
-	V3 result = {a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x};
-	return result;
-}
-
-inline float LengthSq(V3 v)
-{
-	float result = Dot(v, v);
-	return result;
-}
-
-inline float Length(V3 v)
-{
-	return (float)sqrt(LengthSq(v));
-}
-
-inline V3 Normalize(V3 v)
-{
-	V3 result = v / Length(v);
-	return result;
-}
-
-inline V3 Reflect(V3 v, V3 n)
-{
-	return v - n*2*Dot(v, n);
-}
-
-inline V3 Saturate(V3 v)
-{
-	V3 result = v;
-	result.x = min(max(result.x, 0), 1);
-	result.y = min(max(result.y, 0), 1);
-	result.z = min(max(result.z, 0), 1);
-	return result;
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Vector 4
-
-struct V4
-{
-	union
-	{
-		struct {float x, y, z, w;};
-		struct {float r, g, b, a;};
-		float v[4];
-	};
-};
-
-V4 operator+(const V4 & a, const V4 & b)
-{
-	V4 result = {a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w};
-	return result;
-}
-
-V4 operator-(const V4 & a, const V4 & b)
-{
-	V4 result = {a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w};
-	return result;
-}
-
-V4 operator-(const V4 & a)
-{
-	V4 result = {-a.x, -a.y, -a.z, -a.w};
-	return result;
-}
-
-V4 operator*(const V4 & a, const float & c)
-{
-	V4 result = {a.x*c, a.y*c, a.z*c, a.w*c};
-	return result;
-}
-
-V4 operator*(const float & c, const V4 & a)
-{
-	return a*c;
-}
-
-V4 operator/(const V4 & a, const float & c)
-{
-	V4 result = {a.x/c, a.y/c, a.z/c, a.w/c};
-	return result;
-}
-
-V4 ComponentAdd(const V4 & a, const V4 & b)
-{
-	V4 result;
-	result.x = a.x + b.x;
-	result.y = a.y + b.y;
-	result.z = a.z + b.z;
-	result.w = a.w + b.w;
-	return result;
-}
-
-V4 ComponentMultiply(const V4 & a, const V4 & b)
-{
-	V4 result;
-	result.x = a.x * b.x;
-	result.y = a.y * b.y;
-	result.z = a.z * b.z;
-	result.w = a.w * b.w;
-	return result;
-}
-
-V4 ComponentDivide(const V4 & a, const V4 & b)
-{
-	V4 result;
-	result.x = a.x / b.x;
-	result.y = a.y / b.y;
-	result.z = a.z / b.z;
-	result.w = a.w / b.w;
-	return result;
-}
 
 inline V4 Saturate(V4 v)
 {
@@ -218,10 +22,6 @@ inline V4 Saturate(V4 v)
 	return result;
 }
 
-V4 Lerp(V4 a, float t, V4 b)
-{
-	return (1.0f - t)*a + t*b;
-}
 
 //////////////////////////////////////////////////////////////////////////
 // Intersections
@@ -276,18 +76,6 @@ struct Geometry
 		Mesh mesh;
 	};
 };
-
-float Dot(V2 a, V2 b)
-{
-	float result = a.x*b.x + a.y*b.y;
-	return result;
-}
-
-float Dot(V4 a, V4 b)
-{
-	float result = a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w;
-	return result;
-}
 
 struct Intersection
 {

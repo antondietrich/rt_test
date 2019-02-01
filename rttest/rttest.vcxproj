@@ -115,6 +115,7 @@
   <ItemGroup>
     <ClInclude Include="camera.h" />
     <ClInclude Include="geometry.h" />
+    <ClInclude Include="math.h" />
     <ClInclude Include="object.h" />
     <ClInclude Include="render.h" />
     <ClInclude Include="scene.h" />

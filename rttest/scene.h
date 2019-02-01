@@ -10,8 +10,7 @@ struct Light
 struct Material
 {
 	V4 diffuse;
-	V4 specular;
-	float reflectivity;
+	V4 rf0; // incident reflectance
 	bool isConductor;
 };
 
@@ -42,14 +41,14 @@ void InitScene()
 
 	Material matBase;
 	matBase.diffuse = {0.8f, 0.8f, 0.8f, 1.0f};
-	matBase.specular = {0.0f, 0.0f, 0.0f, 1.0f};
-	matBase.reflectivity = 0;
+	matBase.rf0 = V4::FromFloat(0.005f);
 	matBase.isConductor = false;
 
 	Material matSphere = matBase;
-	matSphere.diffuse = {0.98f, 0.5f, 0.01f};
-	matSphere.specular = {1.0f, 1.0f, 1.0f, 1.0f};
-	matSphere.reflectivity = 1.0f;
+	matSphere.diffuse = {0.0f, 0.0f, 0.0f};
+	matSphere.rf0 = {0.96f, 0.64f, 0.54f, 1.0f}; // copper
+	matSphere.rf0 = {1.0f, 0.71f, 0.29f, 1.0f}; // gold
+	matSphere.isConductor = true;
 
 	Material matLeft = matBase;
 	matLeft.diffuse = V4{254, 105, 36, 255}/255.0f;
@@ -66,9 +65,6 @@ void InitScene()
 	Material matBottom = matBase;
 	Material matTop = matBase;
 
-#if 1
-	matBottom.reflectivity = 0.5f;
-#endif
 
 #if 0
 	matBack.diffuse = V4{0.0f, 1.0f, 0.0f, 1.0f};

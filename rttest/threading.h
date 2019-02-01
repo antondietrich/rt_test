@@ -54,7 +54,7 @@ void PerformRenderJob(RenderJob * job)
 				ray.d = dir;
 
 				V4 sampleRadiance = ComputeRadiance(ray, &scene, 0);
-				outgoingRadiance = ComponentAdd(outgoingRadiance, sampleRadiance);
+				outgoingRadiance = outgoingRadiance + sampleRadiance;
 			}
 
 			outgoingRadiance = outgoingRadiance / (float)job->spp;
