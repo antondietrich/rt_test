@@ -5,3 +5,5 @@ x64
 *.vc.db
 *.sdf
 *.opensdf
+build
+img

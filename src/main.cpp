@@ -14,8 +14,6 @@ typedef uint64_t	uint64;
 
 typedef uint32_t	uint;
 
-#define PI 3.14159265f
-
 #include "math.h"
 #include "geometry.h"
 #include "camera.h"
@@ -200,7 +198,7 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 				V3 camRight = -Cross(cam.direction, cam.up);
 				V3 target = cam.position + cam.direction*cam.focalLength + camRight*(x - WIDTH/2 + sampleOffset.x)*mpp + -cam.up*(y - HEIGHT/2 + sampleOffset.y)*mpp;
 				V3 dir = Normalize(target - cam.position);
-		
+
 				Ray ray = {0};
 				ray.o = cam.position;
 				ray.d = dir;
@@ -238,7 +236,7 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 					}
 
 					// reflection
-				
+
 					V3 reflectionVector = Normalize(Reflect(ray.d, ix.normal));
 					Ray reflectionRay = {ix.point, reflectionVector};
 					int reflectionDepth = 0;
@@ -328,8 +326,8 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
-			
-		
+
+
 		QueryPerformanceCounter(&now);
 		long long elapsedCounts = now.QuadPart - last.QuadPart;
 		elapsedS += (double)elapsedCounts / freq.QuadPart;

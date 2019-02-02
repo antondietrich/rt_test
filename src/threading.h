@@ -53,7 +53,7 @@ void PerformRenderJob(RenderJob * job)
 				ray.o = job->camera->position;
 				ray.d = dir;
 
-				V4 sampleRadiance = ComputeRadiance(ray, &scene, 0);
+				V4 sampleRadiance = ComputeRadiance(ray, &scene, 0, 0);
 				outgoingRadiance = outgoingRadiance + sampleRadiance;
 			}
 

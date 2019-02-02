@@ -2,7 +2,7 @@
 
 #include <math.h>
 
-#define EPSYLON 1e-4f
+
 
 inline float Saturate(float v)
 {
@@ -107,7 +107,7 @@ bool IntersectRaySphere(Ray ray, Sphere sphere, Intersection * intersection)
 			}
 		}
 	}
-	
+
 	return result;
 }
 
@@ -203,4 +203,41 @@ bool Intersect(Ray ray, Geometry geo, Intersection * ix)
 			return false;
 		} break;
 	}
+}
+
+V3 RandomDirectionOnHemisphere2(V3 n)
+{
+	float incl, azimuth;
+	incl = ((float)rand() / RAND_MAX) * PI * 0.5f;
+	azimuth = ((float)rand() / RAND_MAX) * PI2;
+
+	float x, y, z;
+	x = sin(incl)*cos(azimuth);
+	y = sin(incl)*sin(azimuth);
+	z = cos(incl);
+	V3 direction = {x, y, z};
+
+	V3 u, v;
+	OrthonormalBasisFromAxis(n, &u, &v);
+	M4x4 m = M4x4::RotationIntoBasis(n, u, v);
+	V3 result = m * direction;
+
+	return Normalize(result);
+}
+
+V3 RandomDirectionOnHemisphere(V3 n)
+{
+
+	float x, y, z;
+	x = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+	y = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+	z = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+	V3 direction = Normalize({x, y, z});
+
+	if(Dot(direction, n) < 0)
+	{
+		direction = -direction;
+	}
+
+	return direction;
 }

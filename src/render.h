@@ -1,7 +1,9 @@
 #pragma once
 
-#define MAX_REFLECTION_DEPTH 4
 #define SAMPLES_PER_PIXEL 4
+#define MAX_REFLECTION_DEPTH 4
+#define MAX_DIFFUSE_BOUNCES 1
+#define SECONDARY_RAYS 32
 
 
 V2 sampleGrid[][8] = {
@@ -83,7 +85,7 @@ bool TraceRay(Ray r, Scene * s, Intersection * out_ix, Object ** out_io)
 	return result;
 }
 
-V4 ComputeRadiance(Ray ray, Scene * scene, int depth)
+V4 ComputeRadiance(Ray ray, Scene * scene, int depth, int bounce)
 {
 	V4 radiance = {};
 	Intersection ix;
@@ -97,24 +99,42 @@ V4 ComputeRadiance(Ray ray, Scene * scene, int depth)
 		V3 toCam = -ray.d;
 
 		// diffuse
-		float ndl = fmaxf(0, Dot(ix.normal, toLight));
-		//V4 diffuseRadiance = io->material.diffuse * (light->intensity / lightDistanceSq);
-
-		// shadow
-		Ray shadowRay = {ix.point, toLight};
-		Intersection shadowIx;
-		float shadowFactor = 1.0f; // fully lit
-		if(TraceRay(shadowRay, scene, &shadowIx, 0))
+		V4 diffuseRadiance = {};
+		if(bounce < MAX_DIFFUSE_BOUNCES)
 		{
-			if(shadowIx.t*shadowIx.t < lightDistanceSq)
+			for(int i = 0; i < SECONDARY_RAYS; ++i)
 			{
-				shadowFactor = 0.0f;
+				V3 diffDir = RandomDirectionOnHemisphere(ix.normal);
+				Ray diffRay = {ix.point, diffDir};
+				V4 sampledRadiance = ComputeRadiance(diffRay, scene, depth, bounce+1);
+				float cosTheta = Dot(ix.normal, diffDir);
+				diffuseRadiance += ComponentMultiply(io->material.diffuse / PI, sampledRadiance * cosTheta);
+			}
+			diffuseRadiance = diffuseRadiance / SECONDARY_RAYS;
+		}
+		// else
+		{
+			if(!io->material.isConductor)
+			{
+				float ndl = fmaxf(0, Dot(ix.normal, toLight));
+				//V4 diffuseRadiance = io->material.diffuse * (light->intensity / lightDistanceSq);
+
+				// shadow
+				Ray shadowRay = {ix.point, toLight};
+				Intersection shadowIx;
+				float shadowFactor = 1.0f; // fully lit
+				if(TraceRay(shadowRay, scene, &shadowIx, 0))
+				{
+					if(shadowIx.t*shadowIx.t < lightDistanceSq)
+					{
+						shadowFactor = 0.0f;
+					}
+				}
+
+				diffuseRadiance += shadowFactor * ComponentMultiply(io->material.diffuse / PI, (light->color * light->intensity / lightDistanceSq) * ndl);
 			}
 		}
 
-		V4 diffuseRadiance = {};
-		if(!io->material.isConductor)
-			diffuseRadiance = ComponentMultiply(io->material.diffuse / PI, (light->color * light->intensity / lightDistanceSq) * ndl);
 
 		// reflection
 		V4 reflectedRadiance = {};
@@ -126,10 +146,10 @@ V4 ComputeRadiance(Ray ray, Scene * scene, int depth)
 			Ray reflectionRay = {ix.point, reflectionVector};
 			float cosTheta = Dot(ix.normal, reflectionVector);
 			specularReflectance = Schlick(io->material.rf0, cosTheta);
-			reflectedRadiance = cosTheta * ComputeRadiance(reflectionRay, scene, depth + 1);
+			reflectedRadiance = cosTheta * ComputeRadiance(reflectionRay, scene, depth + 1, bounce);
 		}
-		
-		radiance = ComponentMultiply(V4::FromFloat(1.0f) - specularReflectance, diffuseRadiance*shadowFactor) + ComponentMultiply(specularReflectance, reflectedRadiance);
+
+		radiance = ComponentMultiply(V4::FromFloat(1.0f) - specularReflectance, diffuseRadiance) + ComponentMultiply(specularReflectance, reflectedRadiance);
 	}
 
 	return radiance;

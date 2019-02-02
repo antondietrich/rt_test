@@ -4,6 +4,8 @@
 
 #define __MATH_TEST__ 0
 
+#define EPSYLON 1e-4f
+
 #if __MATH_TEST__
 #include <directxmath.h>
 using namespace DirectX;
@@ -805,17 +807,23 @@ V3 RotateZ(V3 v, float deg)
 
 void OrthonormalBasisFromAxis(V3 xAxis, V3 * yAxis, V3 * zAxis)
 {
-	if((abs(xAxis.x) < abs(xAxis.y)) && (abs(xAxis.x) < abs(xAxis.z)))
+	assert(LengthSq(xAxis) > EPSYLON);
+
+	if((abs(xAxis.x) <= abs(xAxis.y)) && (abs(xAxis.x) <= abs(xAxis.z)))
 	{
 		*yAxis = {0.0f, -xAxis.z, xAxis.y};
 	}
-	else if((abs(xAxis.y) < abs(xAxis.x)) && (abs(xAxis.y) < abs(xAxis.z)))
+	else if((abs(xAxis.y) <= abs(xAxis.x)) && (abs(xAxis.y) <= abs(xAxis.z)))
 	{
 		*yAxis = {-xAxis.z, 0.0f, xAxis.x};
 	}
 	else
 	{
 		*yAxis = {-xAxis.y, xAxis.x, 0.0f};
+	}
+	if(LengthSq(*yAxis) <= EPSYLON)
+	{
+		int x = 24234;
 	}
 	*yAxis = Normalize(*yAxis);
 	*zAxis = Cross(xAxis, *yAxis);
