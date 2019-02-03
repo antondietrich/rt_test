@@ -1,6 +1,6 @@
 #pragma once
 
-#define MAX_RENDER_JOBS 10*6
+#define MAX_RENDER_JOBS 20*12
 
 struct RenderJob
 {
@@ -48,7 +48,7 @@ void PerformRenderJob(RenderJob * job)
 				V3 camRight = -Cross(job->camera->direction, job->camera->up);
 				V3 target = job->camera->position + job->camera->direction*job->camera->focalLength + camRight*(x - job->viewportWidth/2 + sampleOffset.x)*mpp + -job->camera->up*(y - job->viewportHeight/2 + sampleOffset.y)*mpp;
 				V3 dir = Normalize(target - job->camera->position);
-		
+
 				Ray ray = {0};
 				ray.o = job->camera->position;
 				ray.d = dir;
@@ -58,10 +58,11 @@ void PerformRenderJob(RenderJob * job)
 			}
 
 			outgoingRadiance = outgoingRadiance / (float)job->spp;
-			//*(rowHDR + x) = 
+			//*(rowHDR + x) =
 			PutPixel(job->bitmap, x, y, outgoingRadiance);
 		}
 		//rowHDR += job->viewportWidth;
+		Sleep(1);
 	}
 }
 

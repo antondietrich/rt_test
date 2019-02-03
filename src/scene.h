@@ -11,6 +11,8 @@ struct Material
 {
 	V4 diffuse;
 	V4 rf0; // incident reflectance
+	V4 emissive;
+	float power;
 	bool isConductor;
 };
 
@@ -37,24 +39,37 @@ void InitScene()
 	scene.lights[scene.lightCount].color = {0.8f, 0.6f, 0.5f, 1.0f};
 	scene.lights[scene.lightCount].intensity = 30.0f;
 	scene.lights[scene.lightCount].intensity = 60.0f * 17.5f / (PI*4.0f);
-	scene.lightCount++;
+	// scene.lightCount++;
 
-	Material matBase;
+	scene.lights[scene.lightCount].position = {2.5f, 0.0f, 1.5f};
+	scene.lights[scene.lightCount].color = {0.4f, 0.6f, 0.8f, 1.0f};
+	scene.lights[scene.lightCount].intensity = 20.0f * 17.5f / (PI*4.0f);
+	// scene.lightCount++;
+
+	Material matBase = {};
 	matBase.diffuse = {0.8f, 0.8f, 0.8f, 1.0f};
 	matBase.rf0 = V4::FromFloat(0.005f);
 	matBase.isConductor = false;
 
-	Material matSphere = matBase;
-	matSphere.diffuse = {0.0f, 0.0f, 0.0f};
-	matSphere.rf0 = {0.96f, 0.64f, 0.54f, 1.0f}; // copper
-	matSphere.rf0 = {1.0f, 0.71f, 0.29f, 1.0f}; // gold
-	matSphere.isConductor = true;
+	Material matGold = matBase;
+	matGold.diffuse = {0.0f, 0.0f, 0.0f};
+	matGold.rf0 = {1.0f, 0.71f, 0.29f, 1.0f}; // gold
+	matGold.isConductor = true;
+
+	Material matCopper = matGold;
+	matCopper.rf0 = {0.96f, 0.64f, 0.54f, 1.0f}; // copper
 
 	Material matLeft = matBase;
 	matLeft.diffuse = V4{254, 105, 36, 255}/255.0f;
 
 	Material matRight = matBase;
 	matRight.diffuse = V4{120, 204, 237, 255}/255.0f;
+
+	Material matEmissive = matBase;
+	matEmissive.diffuse = V4::FromFloat(0.0f);
+	matEmissive.rf0 = V4::FromFloat(0.0f);
+	matEmissive.emissive = V4::FromFloat(1.0f);
+	matEmissive.power = 100;
 
 #if 0
 	matRight.reflectivity = 1.0f;
@@ -78,7 +93,7 @@ void InitScene()
 	scene.objects[scene.objectCount].geometry.type = GeoType::SPHERE;
 	scene.objects[scene.objectCount].geometry.sphere.o = {1.0f, 0.8f, 1.0f};
 	scene.objects[scene.objectCount].geometry.sphere.r = 1.0f;
-	scene.objects[scene.objectCount].material = matSphere;
+	scene.objects[scene.objectCount].material = matGold;
 	scene.objectCount++;
 
 #if 1
@@ -93,10 +108,11 @@ void InitScene()
 	scene.objects[scene.objectCount].geometry.type = GeoType::SPHERE;
 	scene.objects[scene.objectCount].geometry.sphere.o = {0, 2.1f, 0.5f};
 	scene.objects[scene.objectCount].geometry.sphere.r = 0.5f;
-	scene.objects[scene.objectCount].material = matSphere;
+	scene.objects[scene.objectCount].material = matCopper;
+	scene.objects[scene.objectCount].material = matEmissive;
 	scene.objectCount++;
 #endif
-	
+
 	// right
 	scene.objects[scene.objectCount].geometry.type = GeoType::MESH;
 	vb[0] = {{ 3.0f,  3.0f, 0.0f}, {0.0f, -1.0f, 0.0f}};
@@ -194,5 +210,23 @@ void InitScene()
 	scene.objects[scene.objectCount].material = matTop;
 	scene.objectCount++;
 #endif
+
+	scene.objects[scene.objectCount].geometry.type = GeoType::MESH;
+	vb[30] = {{ 0.5f, -0.5f, 5.9f}, {0.0f, 0.0f, -1.0f}};
+	vb[31] = {{-0.5f,  0.5f, 5.9f}, {0.0f, 0.0f, -1.0f}};
+	vb[32] = {{-0.5f, -0.5f, 5.9f}, {0.0f, 0.0f, -1.0f}};
+	vb[33] = {{ 0.5f, -0.5f, 5.9f}, {0.0f, 0.0f, -1.0f}};
+	vb[34] = {{ 0.5f,  0.5f, 5.9f}, {0.0f, 0.0f, -1.0f}};
+	vb[35] = {{-0.5f,  0.5f, 5.9f}, {0.0f, 0.0f, -1.0f}};
+
+	Sphere boundLight;
+	boundLight.o = {0.0f, 0.0f, 5.9f};
+	boundLight.r = (float)sqrt(0.5f);
+
+	scene.objects[scene.objectCount].geometry.mesh.vertexCount = 6;
+	scene.objects[scene.objectCount].geometry.mesh.vertices = vb + 30;
+	scene.objects[scene.objectCount].geometry.mesh.bound = boundLight;
+	scene.objects[scene.objectCount].material = matEmissive;
+	scene.objectCount++;
 #endif
 }

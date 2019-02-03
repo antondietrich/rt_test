@@ -821,10 +821,7 @@ void OrthonormalBasisFromAxis(V3 xAxis, V3 * yAxis, V3 * zAxis)
 	{
 		*yAxis = {-xAxis.y, xAxis.x, 0.0f};
 	}
-	if(LengthSq(*yAxis) <= EPSYLON)
-	{
-		int x = 24234;
-	}
+
 	*yAxis = Normalize(*yAxis);
 	*zAxis = Cross(xAxis, *yAxis);
 }

@@ -141,8 +141,8 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 	bitmapHDR = new V4[WIDTH*HEIGHT];
 	V4 * rowHDR = bitmapHDR;
 
-	const int xSubdivs = 10;
-	const int ySubdivs = 6;
+	const int xSubdivs = 20;
+	const int ySubdivs = 12;
 	int bucketW = WIDTH / xSubdivs;
 	int bucketH = HEIGHT / ySubdivs;
 	JobQueue jobqueue;
@@ -165,6 +165,25 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 			job.spp = SAMPLES_PER_PIXEL;
 			jobqueue.Push(job);
 		}
+	}
+
+	for(int a = 0; a < jobqueue.jobCount; ++a)
+	{
+		bool swapped = false;
+		for(int b = 0; b < jobqueue.jobCount - 1; ++b)
+		{
+			float scoreA = LengthSq(V2{jobqueue.jobs[b].x0, jobqueue.jobs[b].y0} - V2{WIDTH/2, HEIGHT/2});
+			float scoreB = LengthSq(V2{jobqueue.jobs[b + 1].x0, jobqueue.jobs[b + 1].y0} - V2{WIDTH/2, HEIGHT/2});
+			if(scoreA < scoreB)
+			{
+				RenderJob job = jobqueue.jobs[b];
+				jobqueue.jobs[b] = jobqueue.jobs[b + 1];
+				jobqueue.jobs[b + 1] = job;
+				swapped = true;
+			}
+		}
+		if(!swapped)
+			break;
 	}
 
 
