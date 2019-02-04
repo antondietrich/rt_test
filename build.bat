@@ -36,7 +36,7 @@ if not exist "bin" md bin
 del bin\*.pdb > NUL 2> NUL
 
 set compilerFlagsCommon=-MP -Oi -EHa- -GR- -W4 -nologo -D_CRT_SECURE_NO_WARNINGS %profileEnable% -DWITH_EDITOR=1
-set suppressedWarnings=-wd4100 -wd4505 -wd4201 -wd4127
+set suppressedWarnings=-wd4100 -wd4505 -wd4201 -wd4127 -wd4101 -wd4459 -wd4189
 
 set linkerFlagsExe=/link /INCREMENTAL:NO
 set sourceExe=src\main.cpp

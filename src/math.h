@@ -841,12 +841,12 @@ V3 RotateAxis(V3 v, V3 xAxis, float deg)
 	return result;
 }
 
-#pragma warning(disable:4189)
-#pragma warning(disable:4101)
 
 
 #if __MATH_TEST__
 
+#pragma warning(disable:4189)
+#pragma warning(disable:4101)
 inline void TestMath()
 {
 	V3 test0;
@@ -983,11 +983,10 @@ inline void TestMath()
 	Log("{%2.3f, %2.3f, %2.3f}", normalFromTangentM.x, normalFromTangentM.y, normalFromTangentM.z);
 }
 #endif
-
 }
+#pragma warning(default:4101)
+#pragma warning(default:4189)
 #else
 inline void TestMath() {};
 #endif
 
-#pragma warning(default:4101)
-#pragma warning(default:4189)
