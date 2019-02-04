@@ -14,6 +14,7 @@ typedef uint64_t	uint64;
 
 typedef uint32_t	uint;
 
+#include "profile.h"
 #include "math.h"
 #include "geometry.h"
 #include "camera.h"
@@ -114,6 +115,7 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 		row += WIDTH;
 	}
 
+	InitProfiler();
 	InitScene();
 
 	// Left-handed, +X is front, +Y is right, +Z is up
@@ -172,8 +174,8 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 		bool swapped = false;
 		for(int b = 0; b < jobqueue.jobCount - 1; ++b)
 		{
-			float scoreA = LengthSq(V2{jobqueue.jobs[b].x0, jobqueue.jobs[b].y0} - V2{WIDTH/2, HEIGHT/2});
-			float scoreB = LengthSq(V2{jobqueue.jobs[b + 1].x0, jobqueue.jobs[b + 1].y0} - V2{WIDTH/2, HEIGHT/2});
+			float scoreA = LengthSq(V2{(float)jobqueue.jobs[b].x0, (float)jobqueue.jobs[b].y0} - V2{WIDTH/2, HEIGHT/2});
+			float scoreB = LengthSq(V2{(float)jobqueue.jobs[b + 1].x0, (float)jobqueue.jobs[b + 1].y0} - V2{WIDTH/2, HEIGHT/2});
 			if(scoreA < scoreB)
 			{
 				RenderJob job = jobqueue.jobs[b];
@@ -420,6 +422,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			StretchDIBits(dc, 0, 0, WIDTH, HEIGHT,
 							0, 0, WIDTH, HEIGHT,
 							bitmap, &bmpinfo, DIB_RGB_COLORS, SRCCOPY);
+
+			char buf[512];
+			int len = PrintProfile(buf);
+
+			// SetTextColor(dc, RGB(0, 255, 255));
+			//DrawText(dc, "TEST", len, &ps.rcPaint, DT_LEFT | DT_TOP);
+			TextOut(dc, 0, 0, buf, len);
+
 			EndPaint(hwnd, &ps);
 		}	break;
 		case WM_DESTROY:

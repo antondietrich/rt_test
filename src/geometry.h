@@ -181,28 +181,33 @@ bool IntersectRayMesh(Ray ray, Mesh mesh, Intersection * intersection)
 
 bool Intersect(Ray ray, Geometry geo, Intersection * ix)
 {
+	BEGIN_PROFILE(Intersect);
+	bool result = false;
 	switch(geo.type)
 	{
 		case GeoType::SPHERE:
 		{
-			return IntersectRaySphere(ray, geo.sphere, ix);
+			result = IntersectRaySphere(ray, geo.sphere, ix);
 		} break;
 
 		case GeoType::PLANE:
 		{
-			return IntersectRayPlane(ray, geo.plane, ix);
+			result = IntersectRayPlane(ray, geo.plane, ix);
 		} break;
 
 		case GeoType::MESH:
 		{
-			return IntersectRayMesh(ray, geo.mesh, ix);
+			result = IntersectRayMesh(ray, geo.mesh, ix);
 		} break;
 
 		default:
 		{
-			return false;
+
 		} break;
 	}
+
+	END_PROFILE(Intersect);
+	return result;
 }
 
 V3 RandomDirectionOnHemisphere2(V3 n)
