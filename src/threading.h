@@ -1,5 +1,6 @@
 #pragma once
 
+
 #define MAX_RENDER_JOBS 20*12
 
 struct RenderJob
@@ -34,6 +35,8 @@ struct AsyncTask
 
 void PerformRenderJob(RenderJob * job)
 {
+PROFILED_FUNCTION;
+	uint tid = GetCurrentThreadId();
 	//V4 * rowHDR = job->bitmap;
 	for(int y = job->y0; y < job->y1; ++y)
 	{

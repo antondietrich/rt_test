@@ -1,9 +1,9 @@
 #pragma once
 
 #define SAMPLES_PER_PIXEL 1
-#define MAX_REFLECTION_DEPTH 2
+#define MAX_REFLECTION_DEPTH 1
 #define MAX_DIFFUSE_BOUNCES 1
-#define SECONDARY_RAYS 128
+#define SECONDARY_RAYS 64
 
 
 V2 sampleGrid[][8] = {
@@ -37,6 +37,7 @@ V2 sampleGrid[][8] = {
 
 void PutPixel(V4 * bitmap, int x, int y, V4 color)
 {
+PROFILED_FUNCTION;
 	bitmap[y*1280 + x] = color;
 }
 

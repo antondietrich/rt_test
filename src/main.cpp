@@ -1,3 +1,4 @@
+//#define WIN32_LEAN_AND_MEAN
 #include "Windows.h"
 #include <inttypes.h>
 #include <assert.h>
@@ -14,6 +15,12 @@ typedef uint64_t	uint64;
 
 typedef uint32_t	uint;
 
+#define THREAD_COUNT 8
+uint8 gThreadCounter = 0;
+uint8 gThreadIdMap[1<<16];
+
+#define LOCAL_THREAD_ID (gThreadIdMap[GetCurrentThreadId()])
+
 #include "profile.h"
 #include "math.h"
 #include "geometry.h"
@@ -23,15 +30,16 @@ typedef uint32_t	uint;
 #include "render.h"
 #include "threading.h"
 
+
 #define WIDTH 1280
 #define HEIGHT 768
-#define THREAD_COUNT 8
-
 
 
 bool running = true;
 int frameCount = 0;
 bool renderFinished = false;
+
+HFONT fontMono;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
@@ -88,6 +96,8 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 	ShowWindow(window, cmdshow);
 	UpdateWindow(window);
 
+	fontMono = CreateFontA(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, FIXED_PITCH | FF_MODERN, "Droid Sans Mono");
+
 	bmpinfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 	bmpinfo.bmiHeader.biWidth = WIDTH;
 	bmpinfo.bmiHeader.biHeight = -HEIGHT;
@@ -118,6 +128,9 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 	InitProfiler();
 	InitScene();
 
+	gThreadIdMap[GetCurrentThreadId()] = gThreadCounter++;
+
+
 	// Left-handed, +X is front, +Y is right, +Z is up
 	Camera cam;
 	cam.position = {-10.0f, 0.0f, 3.0f};
@@ -141,6 +154,7 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 #endif
 
 	bitmapHDR = new V4[WIDTH*HEIGHT];
+	memset(bitmapHDR, 0, sizeof(V4)*WIDTH*HEIGHT);
 	V4 * rowHDR = bitmapHDR;
 
 	const int xSubdivs = 20;
@@ -203,6 +217,7 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 			0,
 			&taskpool[i].systemId
 		);
+		gThreadIdMap[taskpool[i].systemId] = gThreadCounter++;
 	}
 
 #if 0
@@ -369,6 +384,7 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 		last = now;
 	}
 
+	DeleteObject(fontMono);
 	delete[] vb;
 	delete[] bitmapHDR;
 	delete[] bitmap;
@@ -384,10 +400,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		case WM_PAINT:
 		{
-			dc = BeginPaint(hwnd, &ps);
-			//char buffer[256];
-			//int c = wsprintf(buffer, "Hello, %i", frameCount);
-			//TextOut(dc, 0, 0, buffer, c);
 			if(renderFinished)
 			{
 				uint32_t * row = (uint32_t*)bitmap;
@@ -419,18 +431,23 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 					row += WIDTH;
 				}
 			}
+
+			dc = BeginPaint(hwnd, &ps);
+
 			StretchDIBits(dc, 0, 0, WIDTH, HEIGHT,
 							0, 0, WIDTH, HEIGHT,
 							bitmap, &bmpinfo, DIB_RGB_COLORS, SRCCOPY);
 
-			char buf[512];
-			int len = PrintProfile(buf);
+			char buf[4096];
+			int len = PrintProfile(buf, 4096);
 
-			// SetTextColor(dc, RGB(0, 255, 255));
-			//DrawText(dc, "TEST", len, &ps.rcPaint, DT_LEFT | DT_TOP);
-			TextOut(dc, 0, 0, buf, len);
-
+			SetBkMode(dc, TRANSPARENT);
+			SetTextColor(dc, RGB(0, 255, 255));
+			SelectObject(dc, fontMono);
+			DrawText(dc, buf, len, &ps.rcPaint, DT_LEFT | DT_TOP | DT_EXPANDTABS);
+			//TextOut(dc, 0, 0, buf, len);
 			EndPaint(hwnd, &ps);
+
 		}	break;
 		case WM_DESTROY:
 		{

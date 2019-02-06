@@ -86,6 +86,7 @@ struct Intersection
 
 bool IntersectRaySphere(Ray ray, Sphere sphere, Intersection * intersection)
 {
+PROFILED_FUNCTION;
 	bool result = false;
 	float proj = Dot(sphere.o - ray.o, ray.d);
 	float dist = Length(sphere.o - (ray.o + ray.d*proj));
@@ -113,6 +114,7 @@ bool IntersectRaySphere(Ray ray, Sphere sphere, Intersection * intersection)
 
 bool IntersectRayPlane(Ray ray, Plane plane, Intersection * intersection)
 {
+PROFILED_FUNCTION;
 	bool result = false;
 	float denom = Dot(ray.d, -plane.n);
 	if(denom > EPSYLON)
@@ -135,6 +137,7 @@ bool IntersectRayPlane(Ray ray, Plane plane, Intersection * intersection)
 
 bool IntersectRayMesh(Ray ray, Mesh mesh, Intersection * intersection)
 {
+PROFILED_FUNCTION;
 	bool result = false;
 	//return IntersectRaySphere(ray, mesh.bound, intersection);
 	if(IntersectRaySphere(ray, mesh.bound, nullptr))
@@ -181,7 +184,7 @@ bool IntersectRayMesh(Ray ray, Mesh mesh, Intersection * intersection)
 
 bool Intersect(Ray ray, Geometry geo, Intersection * ix)
 {
-	BEGIN_PROFILE(Intersect);
+PROFILED_FUNCTION;
 	bool result = false;
 	switch(geo.type)
 	{
@@ -206,7 +209,6 @@ bool Intersect(Ray ray, Geometry geo, Intersection * ix)
 		} break;
 	}
 
-	END_PROFILE(Intersect);
 	return result;
 }
 
@@ -230,15 +232,39 @@ V3 RandomDirectionOnHemisphere2(V3 n)
 	return Normalize(result);
 }
 
+#include <random>
+
+// TODO: rng per thread for stable results across renderings
+float Random()
+{
+	static std::mt19937 generator;
+	std::uniform_real_distribution<float> distribution(-1.0f,1.0f);
+	return distribution(generator);
+}
+
 V3 RandomDirectionOnHemisphere(V3 n)
 {
-
 	float x, y, z;
+#if 0
 	x = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
 	y = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
 	z = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
-	V3 direction = Normalize({x, y, z});
+#else
+	V3 direction = {};
+	while(true)
+	{
+		x = Random();
+		y = Random();
+		z = Random();
 
+		direction = {x, y, z};
+		if(LengthSq(direction) <= 1.0f)
+		{
+			break;
+		}
+	}
+#endif
+	direction = Normalize(direction);
 	if(Dot(direction, n) < 0)
 	{
 		direction = -direction;

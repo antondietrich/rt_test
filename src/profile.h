@@ -1,5 +1,8 @@
-#define PROFILE_NAME_LENGTH 64
+#include <cstdio>
+
+#define PROFILE_NAME_MAX_LENGTH 64
 #define MAX_PROFILE_RECORDS 1024
+#define PROFILE_PER_THREAD_OUTPUT 0
 
 
 double countsPerSecond;
@@ -16,17 +19,19 @@ __COUNTER__
 
 struct ProfileRecord
 {
-	char name[PROFILE_NAME_LENGTH];
+	char name[PROFILE_NAME_MAX_LENGTH];
 	uint64 callCount;
 	uint64 timeTotal;
 	uint64 cyclesTotal;
-	double msTotal;
-	double msPerCall;
 };
 
 struct Profile
 {
-	ProfileRecord records[MAX_PROFILE_RECORDS];
+	ProfileRecord records[MAX_PROFILE_RECORDS][THREAD_COUNT + 1];
+	inline ProfileRecord & operator[](int index)
+	{
+		return records[index][LOCAL_THREAD_ID];
+	}
 };
 
 Profile profile = {};
@@ -36,7 +41,7 @@ void InitProfiler()
 	LARGE_INTEGER freq;
 	QueryPerformanceFrequency(&freq);
 	countsPerSecond = (double)freq.QuadPart;
-	countsPerMs = (double)(freq.QuadPart * 1000);
+	countsPerMs = ((double)freq.QuadPart / 1000.0);
 }
 
 inline uint64 GetHiresTime()
@@ -55,30 +60,161 @@ inline uint64 GetCycles()
 	int index##n = __COUNTER__;																		\
 	uint64 startTime##n = GetHiresTime();															\
 	uint64 startCycles##n = GetCycles();															\
-	if(profile.records[index##n].callCount == 0)													\
+	if(profile[index##n].callCount == 0)													\
 	{																								\
-		strncpy(profile.records[index##n].name, #n, PROFILE_NAME_LENGTH);							\
+		profile[index##n] = {};																\
+		strncpy(profile[index##n].name, #n, PROFILE_NAME_MAX_LENGTH);						\
 	}
 
 
 
 #define END_PROFILE(n)																				\
-	profile.records[index##n].cyclesTotal += GetCycles() - startCycles##n;							\
-	profile.records[index##n].timeTotal += GetHiresTime() - startTime##n;							\
-	profile.records[index##n].callCount++;
+	profile[index##n].cyclesTotal += GetCycles() - startCycles##n;							\
+	profile[index##n].timeTotal += GetHiresTime() - startTime##n;							\
+	profile[index##n].callCount++;
 
 
-int  PrintProfile(char * buf)
+struct ProfileProxy
 {
-	int length = 0;
+	ProfileProxy(uint i, char * name)
+	{
+		index = i;
+		startTime = GetHiresTime();
+		startCycles = GetCycles();
+		if(profile[index].callCount == 0)
+		{
+			profile[index] = {};
+			strncpy(profile[index].name, name, PROFILE_NAME_MAX_LENGTH);
+		}
+	}
+
+	~ProfileProxy()
+	{
+		profile[index].cyclesTotal += GetCycles() - startCycles;
+		profile[index].timeTotal += GetHiresTime() - startTime;
+		profile[index].callCount++;
+	}
+
+
+	uint index;
+	uint64 startTime;
+	uint64 startCycles;
+};
+
+#define SCOPED_PROFILE(n) ProfileProxy proxy##n = ProfileProxy(__COUNTER__, n)
+#define PROFILED_FUNCTION SCOPED_PROFILE(__FUNCTION__)
+
+int PrintProfile(char * buf, uint bufLength)
+{
+	uint length = 0;
+
+	length += _snprintf(buf + length, bufLength - length, "CC: Call Count\t TC: Time per Call\t TT: Time Total\tRD: rdtsc per call\n\n");
+
 	for(int i = 0; i < MAX_PROFILE_RECORDS; ++i)
 	{
-		if(profile.records[i].callCount)
+		uint64 totalCallCount = 0;
+#if !PROFILE_PER_THREAD_OUTPUT
+		char * profileName = 0;
+		uint64 minTimePC = 0xffffffffffffffff;
+		uint64 maxTimePC = 0;
+		uint64 totalTime = 0;
+		uint64 minCyclesPC = 0xffffffffffffffff;
+		uint64 maxCyclesPC= 0;
+		uint64 totalCycles = 0;
+#endif
+		for(int t = 0; t < gThreadCounter; ++t)
 		{
-			double totalMS = profile.records[i].timeTotal / countsPerMs;
-			length = wsprintf(buf, "%i: %s: %i, PC: %2.2f", i, profile.records[i].name, profile.records[i].callCount, totalMS / (double)profile.records[i].callCount);
-			break;
+
+			if(profile.records[i][t].callCount)
+			{
+				ProfileRecord r = profile.records[i][t];
+				totalCallCount += r.callCount;
+
+#if PROFILE_PER_THREAD_OUTPUT
+				if(length < bufLength)
+				{
+					length += _snprintf(buf + length, bufLength - length, "Thread %2i: %-20s\t", t, r.name);
+
+					if(r.callCount >= 1000000)
+					{
+						double callCount = r.callCount / 1000000.0;
+						length += _snprintf(buf + length, bufLength - length, "CC: %6.2fM\t", callCount);
+					}
+					else
+					{
+						length += _snprintf(buf + length, bufLength - length, "CC: %6u \t", r.callCount);
+					}
+
+					double totalMs = r.timeTotal / countsPerMs;
+					double usPerCall = (totalMs * 1000) / (double)r.callCount;
+
+					if(usPerCall >= 10.0f)
+					{
+						length += _snprintf(buf + length, bufLength - length, "TC: %5.2fms\t", usPerCall / 1000);
+					}
+					else if(usPerCall >= 0.1f)
+					{
+						length += _snprintf(buf + length, bufLength - length, "TC: %5.2fus\t", usPerCall);
+					}
+					else
+					{
+						length += _snprintf(buf + length, bufLength - length, "TC: %5.3fns\t", usPerCall * 1000);
+					}
+
+					length += _snprintf(buf + length, bufLength - length, "TT: %4.1fs\t", totalMs / 1000);
+					length += _snprintf(buf + length, bufLength - length, "RD: %llu\n", r.cyclesTotal / r.callCount);
+				}
+
+#else
+				profileName = r.name;
+				minTimePC = r.timeTotal < minTimePC ? r.timeTotal : minTimePC;
+				maxTimePC = r.timeTotal > maxTimePC ? r.timeTotal : maxTimePC;
+				totalTime += r.timeTotal;
+				minCyclesPC = r.cyclesTotal < minCyclesPC ? r.cyclesTotal : minCyclesPC;
+				maxCyclesPC = r.cyclesTotal > maxCyclesPC ? r.cyclesTotal : maxCyclesPC;
+				totalCycles += r.cyclesTotal;
+#endif
+			}
+		} // end for each thread
+
+		if(totalCallCount > 0)
+		{
+#if PROFILE_PER_THREAD_OUTPUT
+			length += _snprintf(buf + length, bufLength - length, "\t\tCall total: %u\n", totalCallCount);
+#else
+			double totalMs = totalTime / countsPerMs;
+			double usPerCall = (totalMs * 1000) / (double)totalCallCount;
+
+			length += _snprintf(buf + length, bufLength - length, "%-20s\t", profileName);
+
+			if(totalCallCount >= 1000000)
+			{
+				length += _snprintf(buf + length, bufLength - length, "CC: %6.2fM\t", totalCallCount / 1000000.0);
+			}
+			else
+			{
+				length += _snprintf(buf + length, bufLength - length, "CC: %6u \t", totalCallCount);
+			}
+
+			if(usPerCall >= 10.0f)
+			{
+				length += _snprintf(buf + length, bufLength - length, "TC: %5.2fms\t", usPerCall / 1000);
+			}
+			else if(usPerCall >= 0.1f)
+			{
+				length += _snprintf(buf + length, bufLength - length, "TC: %5.2fus\t", usPerCall);
+			}
+			else
+			{
+				length += _snprintf(buf + length, bufLength - length, "TC: %5.3fns\t", usPerCall * 1000);
+			}
+
+			// length += _snprintf(buf + length, bufLength - length, "TT: %4.1fs\t", totalMs / 1000);
+			length += _snprintf(buf + length, bufLength - length, "RD: %llu\n", totalCycles / totalCallCount);
+#endif
 		}
 	}
 	return length;
 }
+
+
