@@ -1,5 +1,7 @@
 #include <cstdio>
 
+#define PROFILE 1
+
 #define PROFILE_NAME_MAX_LENGTH 64
 #define MAX_PROFILE_RECORDS 1024
 #define PROFILE_PER_THREAD_OUTPUT 0
@@ -27,7 +29,7 @@ struct ProfileRecord
 
 struct Profile
 {
-	ProfileRecord records[MAX_PROFILE_RECORDS][THREAD_COUNT + 1];
+	ProfileRecord records[MAX_PROFILE_RECORDS][RENDER_THREAD_COUNT + 1];
 	inline ProfileRecord & operator[](int index)
 	{
 		return records[index][LOCAL_THREAD_ID];
@@ -36,7 +38,7 @@ struct Profile
 
 Profile profile = {};
 
-void InitProfiler()
+void InitProfiler_()
 {
 	LARGE_INTEGER freq;
 	QueryPerformanceFrequency(&freq);
@@ -56,55 +58,51 @@ inline uint64 GetCycles()
 	return __rdtsc();
 }
 
-#define BEGIN_PROFILE(n) 																			\
-	int index##n = __COUNTER__;																		\
-	uint64 startTime##n = GetHiresTime();															\
-	uint64 startCycles##n = GetCycles();															\
-	if(profile[index##n].callCount == 0)													\
-	{																								\
-		profile[index##n] = {};																\
-		strncpy(profile[index##n].name, #n, PROFILE_NAME_MAX_LENGTH);						\
-	}
 
 
-
-#define END_PROFILE(n)																				\
-	profile[index##n].cyclesTotal += GetCycles() - startCycles##n;							\
-	profile[index##n].timeTotal += GetHiresTime() - startTime##n;							\
-	profile[index##n].callCount++;
-
-
-struct ProfileProxy
+struct ProfileProxyFast
 {
-	ProfileProxy(uint i, char * name)
+	ProfileProxyFast(uint i, char * name)
 	{
 		index = i;
-		startTime = GetHiresTime();
 		startCycles = GetCycles();
 		if(profile[index].callCount == 0)
 		{
 			profile[index] = {};
+			profile[index].callCount++;
 			strncpy(profile[index].name, name, PROFILE_NAME_MAX_LENGTH);
 		}
 	}
 
-	~ProfileProxy()
+	~ProfileProxyFast()
 	{
 		profile[index].cyclesTotal += GetCycles() - startCycles;
-		profile[index].timeTotal += GetHiresTime() - startTime;
+		// uint64 y = GetCycles() - startCycles;
 		profile[index].callCount++;
 	}
 
 
 	uint index;
-	uint64 startTime;
 	uint64 startCycles;
 };
 
-#define SCOPED_PROFILE(n) ProfileProxy proxy##n = ProfileProxy(__COUNTER__, n)
-#define PROFILED_FUNCTION SCOPED_PROFILE(__FUNCTION__)
+struct ProfileProxy : public ProfileProxyFast
+{
+	ProfileProxy(uint i, char * name) : ProfileProxyFast(i, name)
+	{
+		startTime = GetHiresTime();
+	}
+	~ProfileProxy()
+	{
+		profile[index].timeTotal += GetHiresTime() - startTime;
+	}
 
-int PrintProfile(char * buf, uint bufLength)
+	uint64 startTime;
+};
+
+
+
+int PrintProfile_(char * buf, uint bufLength)
 {
 	uint length = 0;
 
@@ -115,6 +113,7 @@ int PrintProfile(char * buf, uint bufLength)
 		uint64 totalCallCount = 0;
 #if !PROFILE_PER_THREAD_OUTPUT
 		char * profileName = 0;
+		uint profileIndex = 0;
 		uint64 minTimePC = 0xffffffffffffffff;
 		uint64 maxTimePC = 0;
 		uint64 totalTime = 0;
@@ -133,7 +132,8 @@ int PrintProfile(char * buf, uint bufLength)
 #if PROFILE_PER_THREAD_OUTPUT
 				if(length < bufLength)
 				{
-					length += _snprintf(buf + length, bufLength - length, "Thread %2i: %-20s\t", t, r.name);
+					// length += _snprintf(buf + length, bufLength - length, "Thread %2i: %-20s\t", t, r.name);
+					length += _snprintf(buf + length, bufLength - length, "Thread %2i:\t", t);
 
 					if(r.callCount >= 1000000)
 					{
@@ -166,6 +166,7 @@ int PrintProfile(char * buf, uint bufLength)
 				}
 
 #else
+				profileIndex = i;
 				profileName = r.name;
 				minTimePC = r.timeTotal < minTimePC ? r.timeTotal : minTimePC;
 				maxTimePC = r.timeTotal > maxTimePC ? r.timeTotal : maxTimePC;
@@ -186,6 +187,7 @@ int PrintProfile(char * buf, uint bufLength)
 			double usPerCall = (totalMs * 1000) / (double)totalCallCount;
 
 			length += _snprintf(buf + length, bufLength - length, "%-20s\t", profileName);
+			// length += _snprintf(buf + length, bufLength - length, "%u\t", profileIndex);
 
 			if(totalCallCount >= 1000000)
 			{
@@ -218,3 +220,40 @@ int PrintProfile(char * buf, uint bufLength)
 }
 
 
+#ifdef PROFILE
+
+	#define SCOPED_PROFILE(n) ProfileProxy proxy##n = ProfileProxy(__COUNTER__, n)
+	#define PROFILED_FUNCTION SCOPED_PROFILE(__FUNCTION__)
+	#define SCOPED_PROFILE_FAST(n) ProfileProxyFast proxy##n = ProfileProxyFast(__COUNTER__, n)
+	#define PROFILED_FUNCTION_FAST SCOPED_PROFILE_FAST(__FUNCTION__)
+
+	#define BEGIN_PROFILE(n) 																			\
+		int index##n = __COUNTER__;																		\
+		uint64 startTime##n = GetHiresTime();															\
+		uint64 startCycles##n = GetCycles();															\
+		if(profile[index##n].callCount == 0)															\
+		{																								\
+			profile[index##n] = {};																		\
+			strncpy(profile[index##n].name, #n, PROFILE_NAME_MAX_LENGTH);								\
+		}
+
+
+
+	#define END_PROFILE(n)																				\
+		profile[index##n].cyclesTotal += GetCycles() - startCycles##n;									\
+		profile[index##n].timeTotal += GetHiresTime() - startTime##n;									\
+		profile[index##n].callCount++;
+
+	#define PrintProfile(b, l) PrintProfile_((b), (l))
+	#define InitProfiler() InitProfiler_()
+
+#else
+	#define SCOPED_PROFILE(n)
+	#define PROFILED_FUNCTION
+	#define SCOPED_PROFILE_FAST(n)
+	#define PROFILED_FUNCTION_FAST
+	#define BEGIN_PROFILE(n)
+	#define END_PROFILE(n)
+	#define InitProfiler()
+	#define PrintProfile(b, l) 0
+#endif

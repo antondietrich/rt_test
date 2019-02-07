@@ -15,11 +15,12 @@ typedef uint64_t	uint64;
 
 typedef uint32_t	uint;
 
-#define THREAD_COUNT 8
+#define RENDER_THREAD_COUNT 8
 uint8 gThreadCounter = 0;
 uint8 gThreadIdMap[1<<16];
 
 #define LOCAL_THREAD_ID (gThreadIdMap[GetCurrentThreadId()])
+// #define LOCAL_THREAD_ID 0
 
 #include "profile.h"
 #include "math.h"
@@ -37,7 +38,9 @@ uint8 gThreadIdMap[1<<16];
 
 bool running = true;
 int frameCount = 0;
+bool renderStarted = false;
 bool renderFinished = false;
+double renderTime;
 
 HFONT fontMono;
 
@@ -81,8 +84,8 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 	GetWindowRect(desktop, &desktopRect);
 	clientRect.left = 10;
 	clientRect.top = 30;
-	clientRect.right = WIDTH;
-	clientRect.bottom = HEIGHT;
+	clientRect.right = WIDTH + 10;
+	clientRect.bottom = HEIGHT + 30;
 	AdjustWindowRect(&clientRect, WS_OVERLAPPEDWINDOW, FALSE);
 
 	HWND window = CreateWindow("RTWndClass", "RT", WS_OVERLAPPEDWINDOW,
@@ -203,9 +206,13 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 	}
 
 
-	AsyncTask taskpool[THREAD_COUNT];
-	HANDLE threadpool[THREAD_COUNT];
-	for(int i = 0; i < THREAD_COUNT; ++i)
+	AsyncTask taskpool[RENDER_THREAD_COUNT];
+	HANDLE threadpool[RENDER_THREAD_COUNT];
+
+	renderStarted = true;
+	uint64 renderStartTime = GetHiresTime();
+
+	for(int i = 0; i < RENDER_THREAD_COUNT; ++i)
 	{
 		taskpool[i].threadId = i;
 		taskpool[i].jobQueue = &jobqueue;
@@ -220,76 +227,6 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 		gThreadIdMap[taskpool[i].systemId] = gThreadCounter++;
 	}
 
-#if 0
-	for(int y = 0; y < HEIGHT; ++y)
-	{
-		for(int x = 0; x < WIDTH; ++x)
-		{
-			V4 totalRadiance = {};
-
-			for(int s = 0; s < SAMPLES_PER_PIXEL; ++s)
-			{
-				V2 sampleOffset = sampleGrid[SAMPLES_PER_PIXEL][s];
-				float mpp = cam.filmWidth / WIDTH;
-				V3 camRight = -Cross(cam.direction, cam.up);
-				V3 target = cam.position + cam.direction*cam.focalLength + camRight*(x - WIDTH/2 + sampleOffset.x)*mpp + -cam.up*(y - HEIGHT/2 + sampleOffset.y)*mpp;
-				V3 dir = Normalize(target - cam.position);
-
-				Ray ray = {0};
-				ray.o = cam.position;
-				ray.d = dir;
-
-
-				// albedo = ix.object.material
-
-				//V4 diffuse = ComputeRadianceForRay(ray, &scene);
-				//V4 reflection = ComputeRadianceForRay(reflectionRay, &scene);
-
-				Intersection ix;
-				Object * io = nullptr;
-				Light * light = &scene.lights[0];
-
-				if(TraceRay(ray, &scene, &ix, &io))
-				{
-					V3 toLight = Normalize(light->position - ix.point);
-					float lightDistanceSq = LengthSq(light->position - ix.point);
-					V3 toCam = -dir;
-
-					// diffuse
-					float ndl = fmaxf(0, Dot(ix.normal, toLight));
-					V4 diffuseRadiance = io->material.diffuse * (light->intensity / lightDistanceSq);
-
-					// shadow
-					Ray shadowRay = {ix.point, toLight};
-					Intersection shadowIx;
-					float shadowFactor = 1.0f; // fully lit
-					if(TraceRay(shadowRay, &scene, &shadowIx, 0))
-					{
-						if(shadowIx.t*shadowIx.t < lightDistanceSq)
-						{
-							shadowFactor = 0.0f;
-						}
-					}
-
-					// reflection
-
-					V3 reflectionVector = Normalize(Reflect(ray.d, ix.normal));
-					Ray reflectionRay = {ix.point, reflectionVector};
-					int reflectionDepth = 0;
-
-					V4 reflectedRadiance = TraceReflectionPath(reflectionRay, &scene, reflectionDepth);
-
-					//shadowFactor = 1.0f;
-					totalRadiance = ComponentAdd(totalRadiance, Lerp(diffuseRadiance*shadowFactor*ndl, io->material.exponent, reflectedRadiance));
-				}
-			}
-
-			*(rowHDR + x) = totalRadiance / SAMPLES_PER_PIXEL;
-		}
-		rowHDR += WIDTH;
-	}
-#endif
-	renderFinished = true;
 
 #if 0
 	row = (uint32_t*)bitmap;
@@ -311,42 +248,12 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 	float toneControl = exposure / avgLuminance;
 #endif
 
-#if 0
-	row = (uint32_t*)bitmap;
-	for(int y = 0; y < HEIGHT; ++y)
-	{
-		for(int x = 0; x < WIDTH; ++x)
-		{
-			V4 sample = bitmapHDR[y*WIDTH + x];
-
-			// tone mapping
-			float luminance = 0.2126f*sample.r + 0.7152f*sample.g + 0.0722f*sample.b;
-			float whitepoint = 0.6f;
-			//if(x < WIDTH/2)
-			{
-				sample = ComponentDivide(ComponentDivide(sample, (sample + V4{1, 1, 1, 1})*whitepoint), V4{whitepoint, whitepoint, whitepoint, whitepoint} + V4{1, 1, 1, 1});
-			}
-			sample = Saturate(sample);
-
-			// gamma
-			//if(x < WIDTH/2)
-			{
-				sample.r = (float)pow(sample.r, 0.45);
-				sample.g = (float)pow(sample.g, 0.45);
-				sample.b = (float)pow(sample.b, 0.45);
-			}
-			uint32_t color = RGBA32(sample.r, sample.g, sample.b, sample.a);
-			*(row + x) = color;
-		}
-		row += WIDTH;
-	}
-#endif
-
 	InvalidateRect(window, &clientRect, false);
 
 	double elapsedS = 0.0;
 	LARGE_INTEGER freq;
 	QueryPerformanceFrequency(&freq); // counts per sec
+	uint64 countsPerSec = freq.QuadPart;
 	LARGE_INTEGER now;
 	LARGE_INTEGER last;
 	QueryPerformanceCounter(&last);
@@ -363,10 +270,17 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 			DispatchMessage(&msg);
 		}
 
+		if(!renderFinished && WAIT_OBJECT_0 == WaitForMultipleObjects(RENDER_THREAD_COUNT, threadpool, true, 0))
+		{
+			uint64 renderEndTime = GetHiresTime();
+			renderTime = (double)(renderEndTime - renderStartTime) / countsPerSec;
+			renderFinished = true;
+		}
+
 
 		QueryPerformanceCounter(&now);
 		long long elapsedCounts = now.QuadPart - last.QuadPart;
-		elapsedS += (double)elapsedCounts / freq.QuadPart;
+		elapsedS += (double)elapsedCounts / countsPerSec;
 
 		if(elapsedS > 1.0)
 		{
@@ -375,7 +289,7 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 		InvalidateRect(window, &clientRect, false);
 		++frameCount;
 
-		double deltams = (double)elapsedCounts / freq.QuadPart / 1000.0;
+		double deltams = (double)elapsedCounts / countsPerSec / 1000.0;
 		if(deltams < 16.6667)
 		{
 			Sleep((DWORD)(16.6667 - deltams));
@@ -400,7 +314,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		case WM_PAINT:
 		{
-			if(renderFinished)
+			if(renderStarted)
 			{
 				uint32_t * row = (uint32_t*)bitmap;
 				for(int y = 0; y < HEIGHT; ++y)
@@ -445,6 +359,14 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			SetTextColor(dc, RGB(0, 255, 255));
 			SelectObject(dc, fontMono);
 			DrawText(dc, buf, len, &ps.rcPaint, DT_LEFT | DT_TOP | DT_EXPANDTABS);
+			if(renderFinished)
+			{
+				char buf2[256];
+				int len2 = _snprintf(buf2, 256, "Rendering finished in %.2fs", renderTime);
+				// RECT statusRect = ps.rcPaint;
+				// statusRect.top = statusRect.bottom - 30;
+				DrawText(dc, buf2, len2, &ps.rcPaint, DT_LEFT | DT_BOTTOM | DT_SINGLELINE | DT_EXPANDTABS);
+			}
 			//TextOut(dc, 0, 0, buf, len);
 			EndPaint(hwnd, &ps);
 

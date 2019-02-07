@@ -3,7 +3,7 @@
 #define SAMPLES_PER_PIXEL 1
 #define MAX_REFLECTION_DEPTH 1
 #define MAX_DIFFUSE_BOUNCES 1
-#define SECONDARY_RAYS 64
+#define SECONDARY_RAYS 32
 
 
 V2 sampleGrid[][8] = {

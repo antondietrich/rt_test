@@ -86,7 +86,7 @@ struct Intersection
 
 bool IntersectRaySphere(Ray ray, Sphere sphere, Intersection * intersection)
 {
-PROFILED_FUNCTION;
+// PROFILED_FUNCTION_FAST;
 	bool result = false;
 	float proj = Dot(sphere.o - ray.o, ray.d);
 	float dist = Length(sphere.o - (ray.o + ray.d*proj));
@@ -114,7 +114,7 @@ PROFILED_FUNCTION;
 
 bool IntersectRayPlane(Ray ray, Plane plane, Intersection * intersection)
 {
-PROFILED_FUNCTION;
+// PROFILED_FUNCTION_FAST;
 	bool result = false;
 	float denom = Dot(ray.d, -plane.n);
 	if(denom > EPSYLON)
@@ -137,7 +137,7 @@ PROFILED_FUNCTION;
 
 bool IntersectRayMesh(Ray ray, Mesh mesh, Intersection * intersection)
 {
-PROFILED_FUNCTION;
+PROFILED_FUNCTION_FAST;
 	bool result = false;
 	//return IntersectRaySphere(ray, mesh.bound, intersection);
 	if(IntersectRaySphere(ray, mesh.bound, nullptr))
@@ -184,7 +184,7 @@ PROFILED_FUNCTION;
 
 bool Intersect(Ray ray, Geometry geo, Intersection * ix)
 {
-PROFILED_FUNCTION;
+// PROFILED_FUNCTION_FAST;
 	bool result = false;
 	switch(geo.type)
 	{
