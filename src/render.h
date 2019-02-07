@@ -37,7 +37,7 @@ V2 sampleGrid[][8] = {
 
 void PutPixel(V4 * bitmap, int x, int y, V4 color)
 {
-PROFILED_FUNCTION;
+// PROFILED_FUNCTION;
 	bitmap[y*1280 + x] = color;
 }
 

@@ -86,30 +86,31 @@ struct Intersection
 
 bool IntersectRaySphere(Ray ray, Sphere sphere, Intersection * intersection)
 {
-// PROFILED_FUNCTION_FAST;
-	bool result = false;
-	float proj = Dot(sphere.o - ray.o, ray.d);
-	float dist = Length(sphere.o - (ray.o + ray.d*proj));
-	if(dist <= sphere.r)
-	{
-		float pen = (float)sqrt(sphere.r*sphere.r - dist*dist);
-		float t1 = proj - pen;
-		float t2 = proj + pen;
-		float t = t1 < EPSYLON ? t2 : t1;
-		if(t > EPSYLON)
-		{
-			result = true;
-			if(intersection)
-			{
-				V3 point = ray.o + ray.d*t;
-				(*intersection).t = t;
-				(*intersection).point = point;
-				(*intersection).normal = Normalize(point - sphere.o);
-			}
-		}
-	}
+PROFILED_FUNCTION_FAST;
+	// See Real-Time Rendering 3rd ed., p. 741
+	V3 l = sphere.o - ray.o;
+	float s = Dot(l, ray.d);
+	float ll = Dot(l, l);
+	float rr = sphere.r*sphere.r;
+	if(s < 0 && ll > rr) return false;
 
-	return result;
+	float mm = ll - s*s;
+	if(mm > rr) return false;
+
+	float q = sqrt(rr - mm);
+	float t = 0;
+	if(ll > rr)
+		t = s - q;
+	else
+		t = s + q;
+
+	if(intersection)
+	{
+		(*intersection).t = t;
+		(*intersection).point = ray.o + ray.d*t;
+		(*intersection).normal = Normalize((*intersection).point - sphere.o);
+	}
+	return true;
 }
 
 bool IntersectRayPlane(Ray ray, Plane plane, Intersection * intersection)
@@ -137,7 +138,7 @@ bool IntersectRayPlane(Ray ray, Plane plane, Intersection * intersection)
 
 bool IntersectRayMesh(Ray ray, Mesh mesh, Intersection * intersection)
 {
-PROFILED_FUNCTION_FAST;
+// PROFILED_FUNCTION_FAST;
 	bool result = false;
 	//return IntersectRaySphere(ray, mesh.bound, intersection);
 	if(IntersectRaySphere(ray, mesh.bound, nullptr))
