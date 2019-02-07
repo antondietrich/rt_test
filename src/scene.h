@@ -122,15 +122,12 @@ void InitScene()
 	vb[4] = {{-3.0f,  3.0f, 6.0f}, {0.0f, -1.0f, 0.0f}};
 	vb[5] = {{ 3.0f,  3.0f, 6.0f}, {0.0f, -1.0f, 0.0f}};
 
-	Sphere boundRight;
-	boundRight.o = {0.0f, 3.0f, 3.0f};
-	boundRight.r = (float)sqrt(18.0);
-
 	scene.objects[scene.objectCount].geometry.mesh.vertexCount = 6;
 	scene.objects[scene.objectCount].geometry.mesh.vertices = vb;
-	scene.objects[scene.objectCount].geometry.mesh.bound = boundRight;
 	scene.objects[scene.objectCount].material = matRight;
+	ComputeMeshBound(&scene.objects[scene.objectCount].geometry.mesh);
 	scene.objectCount++;
+
 
 	// left
 	scene.objects[scene.objectCount].geometry.type = GeoType::MESH;
@@ -141,14 +138,10 @@ void InitScene()
 	vb[10] = {{-3.0f, -3.0f, 6.0f}, {0.0f, 1.0f, 0.0f}};
 	vb[11] = {{ 3.0f, -3.0f, 6.0f}, {0.0f, 1.0f, 0.0f}};
 
-	Sphere boundLeft;
-	boundLeft.o = {0.0f, -3.0f, 3.0f};
-	boundLeft.r = (float)sqrt(18.0);
-
 	scene.objects[scene.objectCount].geometry.mesh.vertexCount = 6;
 	scene.objects[scene.objectCount].geometry.mesh.vertices = vb + 6;
-	scene.objects[scene.objectCount].geometry.mesh.bound = boundLeft;
 	scene.objects[scene.objectCount].material = matLeft;
+	ComputeMeshBound(&scene.objects[scene.objectCount].geometry.mesh);
 	scene.objectCount++;
 
 	// back
@@ -160,14 +153,10 @@ void InitScene()
 	vb[16] = {{ 3.0f,  3.0f, 6.0f}, {-1.0f, 0.0f, 0.0f}};
 	vb[17] = {{ 3.0f, -3.0f, 6.0f}, {-1.0f, 0.0f, 0.0f}};
 
-	Sphere boundBack;
-	boundBack.o = {3.0f, 0.0f, 3.0f};
-	boundBack.r = (float)sqrt(18.0);
-
 	scene.objects[scene.objectCount].geometry.mesh.vertexCount = 6;
 	scene.objects[scene.objectCount].geometry.mesh.vertices = vb + 12;
-	scene.objects[scene.objectCount].geometry.mesh.bound = boundBack;
 	scene.objects[scene.objectCount].material = matBack;
+	ComputeMeshBound(&scene.objects[scene.objectCount].geometry.mesh);
 	scene.objectCount++;
 
 #if 1
@@ -180,14 +169,10 @@ void InitScene()
 	vb[22] = {{-3.0f,  3.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
 	vb[23] = {{ 3.0f,  3.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
 
-	Sphere boundBottom;
-	boundBottom.o = {0.0f, 0.0f, 0.0f};
-	boundBottom.r = (float)sqrt(18.0);
-
 	scene.objects[scene.objectCount].geometry.mesh.vertexCount = 6;
 	scene.objects[scene.objectCount].geometry.mesh.vertices = vb + 18;
-	scene.objects[scene.objectCount].geometry.mesh.bound = boundBottom;
 	scene.objects[scene.objectCount].material = matBottom;
+	ComputeMeshBound(&scene.objects[scene.objectCount].geometry.mesh);
 	scene.objectCount++;
 
 	// top
@@ -200,14 +185,10 @@ void InitScene()
 	vb[28] = {{ 3.0f,  3.0f, 6.0f}, {0.0f, 0.0f, -1.0f}};
 	vb[29] = {{-3.0f,  3.0f, 6.0f}, {0.0f, 0.0f, -1.0f}};
 
-	Sphere boundTop;
-	boundTop.o = {0.0f, 0.0f, 6.0f};
-	boundTop.r = (float)sqrt(18.0);
-
 	scene.objects[scene.objectCount].geometry.mesh.vertexCount = 6;
 	scene.objects[scene.objectCount].geometry.mesh.vertices = vb + 24;
-	scene.objects[scene.objectCount].geometry.mesh.bound = boundTop;
 	scene.objects[scene.objectCount].material = matTop;
+	ComputeMeshBound(&scene.objects[scene.objectCount].geometry.mesh);
 	scene.objectCount++;
 #endif
 
@@ -219,14 +200,10 @@ void InitScene()
 	vb[34] = {{ 0.5f,  0.5f, 5.9f}, {0.0f, 0.0f, -1.0f}};
 	vb[35] = {{-0.5f,  0.5f, 5.9f}, {0.0f, 0.0f, -1.0f}};
 
-	Sphere boundLight;
-	boundLight.o = {0.0f, 0.0f, 5.9f};
-	boundLight.r = (float)sqrt(0.5f);
-
 	scene.objects[scene.objectCount].geometry.mesh.vertexCount = 6;
 	scene.objects[scene.objectCount].geometry.mesh.vertices = vb + 30;
-	scene.objects[scene.objectCount].geometry.mesh.bound = boundLight;
 	scene.objects[scene.objectCount].material = matEmissive;
+	ComputeMeshBound(&scene.objects[scene.objectCount].geometry.mesh);
 	scene.objectCount++;
 #endif
 }

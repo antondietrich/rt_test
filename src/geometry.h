@@ -44,6 +44,12 @@ struct Plane
 	V3 n;
 };
 
+struct AABB
+{
+	V3 min;
+	V3 max;
+};
+
 struct Vertex
 {
 	V3 position;
@@ -55,6 +61,7 @@ struct Mesh
 	int vertexCount;
 	Vertex * vertices;
 	Sphere bound;
+	AABB aabb;
 };
 
 enum GeoType
@@ -84,9 +91,30 @@ struct Intersection
 	float t;
 };
 
+void ComputeMeshBound(Mesh * mesh)
+{
+	V3 min = V3::FloatMax();
+	V3 max = V3::FloatMin();
+	for(int i = 0; i < mesh->vertexCount; ++i)
+	{
+		Vertex * v = &mesh->vertices[i];
+		if(min.x > v->position.x) min.x = v->position.x;
+		if(min.y > v->position.y) min.y = v->position.y;
+		if(min.z > v->position.z) min.z = v->position.z;
+		if(max.x < v->position.x) max.x = v->position.x;
+		if(max.y < v->position.y) max.y = v->position.y;
+		if(max.z < v->position.z) max.z = v->position.z;
+	}
+	mesh->aabb.min = min;
+	mesh->aabb.max = max;
+	mesh->bound = {};
+	mesh->bound.o = (min + max) / 2;
+	mesh->bound.r = Length((min - max) / 2);
+}
+
 bool IntersectRaySphere(Ray ray, Sphere sphere, Intersection * intersection)
 {
-PROFILED_FUNCTION_FAST;
+// PROFILED_FUNCTION_FAST;
 	// See Real-Time Rendering 3rd ed., p. 741
 	V3 l = sphere.o - ray.o;
 	float s = Dot(l, ray.d);
@@ -110,6 +138,47 @@ PROFILED_FUNCTION_FAST;
 		(*intersection).point = ray.o + ray.d*t;
 		(*intersection).normal = Normalize((*intersection).point - sphere.o);
 	}
+	return true;
+}
+
+bool TestRaySphere(Ray ray, Sphere sphere)
+{
+ PROFILED_FUNCTION_FAST;
+	// See Real-Time Rendering 3rd ed., p. 741
+	V3 l = sphere.o - ray.o;
+	float s = Dot(l, ray.d);
+	float ll = Dot(l, l);
+	float rr = sphere.r*sphere.r;
+	if(s < 0 && ll > rr) return false;
+
+	float mm = ll - s*s;
+	if(mm > rr) return false;
+
+	return true;
+}
+
+bool TestRayAABB(Ray ray, AABB aabb)
+{
+	PROFILED_FUNCTION_FAST;
+	// NOTE: cheating! Represent ray as a very long line segment
+
+	V3 offset = -(aabb.min + aabb.max) * 0.5f;
+	V3 start = ray.o + offset;
+	V3 end = start + ray.d*10000.0f;
+	V3 c = (start + end)*0.5f;
+	V3 w = (end - start)*0.5f;
+	V3 h = aabb.max + offset;
+
+	V3 v;
+	v.x = fabsf(w.x);
+	v.y = fabsf(w.y);
+	v.z = fabsf(w.z);
+	if(fabsf(c.x) > v.x + h.x) return false;
+	if(fabsf(c.y) > v.y + h.y) return false;
+	if(fabsf(c.z) > v.z + h.z) return false;
+	if(fabsf(c.y*w.z - c.z*w.y) > h.y*v.z + h.z*v.y) return false;
+	if(fabsf(c.x*w.z - c.z*w.x) > h.x*v.z + h.z*v.x) return false;
+	if(fabsf(c.x*w.y - c.y*w.x) > h.x*v.y + h.y*v.x) return false;
 	return true;
 }
 
@@ -138,46 +207,56 @@ bool IntersectRayPlane(Ray ray, Plane plane, Intersection * intersection)
 
 bool IntersectRayMesh(Ray ray, Mesh mesh, Intersection * intersection)
 {
-// PROFILED_FUNCTION_FAST;
+ PROFILED_FUNCTION_FAST;
 	bool result = false;
-	//return IntersectRaySphere(ray, mesh.bound, intersection);
-	if(IntersectRaySphere(ray, mesh.bound, nullptr))
+	for(int i = 0; i < mesh.vertexCount; i += 3)
 	{
-		for(int i = 0; i < mesh.vertexCount; i += 3)
+		Vertex v0 = mesh.vertices[i + 0];
+		Vertex v1 = mesh.vertices[i + 1];
+		Vertex v2 = mesh.vertices[i + 2];
+		V3 edge1 = v1.position - v0.position;
+		V3 edge2 = v2.position - v0.position;
+		V3 h = Cross(ray.d, edge2);
+		float a = Dot(edge1, h);
+		if(fabs(a) > EPSYLON)
 		{
-			Vertex v0 = mesh.vertices[i + 0];
-			Vertex v1 = mesh.vertices[i + 1];
-			Vertex v2 = mesh.vertices[i + 2];
-			V3 edge1 = v1.position - v0.position;
-			V3 edge2 = v2.position - v0.position;
-			V3 h = Cross(ray.d, edge2);
-			float a = Dot(edge1, h);
-			if(fabs(a) > EPSYLON)
+			float f = 1.0f/a;
+			V3 s = ray.o - v0.position;
+			float u = f*Dot(s, h);
+			if(Saturate(u) == u)
 			{
-				float f = 1.0f/a;
-				V3 s = ray.o - v0.position;
-				float u = f*Dot(s, h);
-				if(Saturate(u) == u)
+				V3 q = Cross(s, edge1);
+				float v = f*Dot(ray.d, q);
+				if(v >= 0.0f && u + v <= 1.0f)
 				{
-					V3 q = Cross(s, edge1);
-					float v = f*Dot(ray.d, q);
-					if(v >= 0.0f && u + v <= 1.0f)
+					float t = f*Dot(edge2, q);
+					// TODO: add this test to all intersections, remove ray origin shifting from main
+					if(t > EPSYLON)
 					{
-						float t = f*Dot(edge2, q);
-						// TODO: add this test to all intersections, remove ray origin shifting from main
-						if(t > EPSYLON)
+						result = true;
+						if(intersection)
 						{
-							result = true;
-							if(intersection)
-							{
-								(*intersection).t = t;
-								(*intersection).point = ray.o + ray.d*t;
-								(*intersection).normal = v0.normal;
-							}
+							(*intersection).t = t;
+							(*intersection).point = ray.o + ray.d*t;
+							(*intersection).normal = v0.normal;
 						}
 					}
 				}
 			}
+		}
+	}
+	return result;
+}
+
+bool TryIntersectRayMesh(Ray ray, Mesh mesh, Intersection * intersection)
+{
+	bool result = false;
+	//return IntersectRaySphere(ray, mesh.bound, intersection);
+	//if(TestRaySphere(ray, mesh.bound))
+	{
+		if(TestRayAABB(ray, mesh.aabb))
+		{
+			result = IntersectRayMesh(ray, mesh, intersection);
 		}
 	}
 	return result;
@@ -201,7 +280,7 @@ bool Intersect(Ray ray, Geometry geo, Intersection * ix)
 
 		case GeoType::MESH:
 		{
-			result = IntersectRayMesh(ray, geo.mesh, ix);
+			result = TryIntersectRayMesh(ray, geo.mesh, ix);
 		} break;
 
 		default:
