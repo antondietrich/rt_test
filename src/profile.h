@@ -29,7 +29,7 @@ struct ProfileRecord
 
 struct Profile
 {
-	ProfileRecord records[MAX_PROFILE_RECORDS][RENDER_THREAD_COUNT + 1];
+	ProfileRecord records[MAX_PROFILE_RECORDS][PROGRAM_THREAD_COUNT];
 	inline ProfileRecord & operator[](int index)
 	{
 		return records[index][LOCAL_THREAD_ID];
@@ -195,7 +195,7 @@ int PrintProfile_(char * buf, uint bufLength)
 			}
 			else
 			{
-				length += _snprintf(buf + length, bufLength - length, "CC: %6u \t", totalCallCount);
+				length += _snprintf(buf + length, bufLength - length, "CC: %6llu \t", totalCallCount);
 			}
 
 			if(usPerCall >= 10.0f)

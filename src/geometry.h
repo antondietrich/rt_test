@@ -312,30 +312,18 @@ V3 RandomDirectionOnHemisphere2(V3 n)
 	return Normalize(result);
 }
 
-#include <random>
 
-// TODO: rng per thread for stable results across renderings
-float Random()
-{
-	static std::mt19937 generator;
-	std::uniform_real_distribution<float> distribution(-1.0f,1.0f);
-	return distribution(generator);
-}
 
 V3 RandomDirectionOnHemisphere(V3 n)
 {
 	float x, y, z;
-#if 0
-	x = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
-	y = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
-	z = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
-#else
 	V3 direction = {};
+
 	while(true)
 	{
-		x = Random();
-		y = Random();
-		z = Random();
+		x = gPerThreadRng[LOCAL_THREAD_ID].Next(-1.0f, 1.0f);
+		y = gPerThreadRng[LOCAL_THREAD_ID].Next(-1.0f, 1.0f);
+		z = gPerThreadRng[LOCAL_THREAD_ID].Next(-1.0f, 1.0f);
 
 		direction = {x, y, z};
 		if(LengthSq(direction) <= 1.0f)
@@ -343,7 +331,7 @@ V3 RandomDirectionOnHemisphere(V3 n)
 			break;
 		}
 	}
-#endif
+
 	direction = Normalize(direction);
 	if(Dot(direction, n) < 0)
 	{

@@ -37,6 +37,10 @@ void PerformRenderJob(RenderJob * job)
 {
 PROFILED_FUNCTION;
 	uint tid = GetCurrentThreadId();
+	gPerThreadRng[LOCAL_THREAD_ID] = RNG(job->y0 * 11239 + job->x0);
+	float mpp = job->camera->filmWidth / job->viewportWidth;
+
+
 	//V4 * rowHDR = job->bitmap;
 	for(int y = job->y0; y < job->y1; ++y)
 	{
@@ -47,7 +51,6 @@ PROFILED_FUNCTION;
 			for(int s = 0; s < job->spp; ++s)
 			{
 				V2 sampleOffset = sampleGrid[job->spp][s];
-				float mpp = job->camera->filmWidth / job->viewportWidth;
 				V3 camRight = -Cross(job->camera->direction, job->camera->up);
 				V3 target = job->camera->position + job->camera->direction*job->camera->focalLength + camRight*(x - job->viewportWidth/2 + sampleOffset.x)*mpp + -job->camera->up*(y - job->viewportHeight/2 + sampleOffset.y)*mpp;
 				V3 dir = Normalize(target - job->camera->position);
@@ -65,7 +68,7 @@ PROFILED_FUNCTION;
 			PutPixel(job->bitmap, x, y, outgoingRadiance);
 		}
 		//rowHDR += job->viewportWidth;
-		Sleep(1);
+		// Sleep(1);
 	}
 }
 

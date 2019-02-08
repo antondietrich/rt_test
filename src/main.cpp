@@ -2,6 +2,7 @@
 #include "Windows.h"
 #include <inttypes.h>
 #include <assert.h>
+#include <random>
 
 typedef int8_t		int8;
 typedef int16_t		int16;
@@ -16,8 +17,27 @@ typedef uint64_t	uint64;
 typedef uint32_t	uint;
 
 #define RENDER_THREAD_COUNT 8
+#define PROGRAM_THREAD_COUNT RENDER_THREAD_COUNT + 1
 uint8 gThreadCounter = 0;
 uint8 gThreadIdMap[1<<16];
+
+struct RNG
+{
+	RNG(int seed = 1147987)
+	{
+		generator = std::mt19937(seed);
+	}
+
+	float Next(float min, float max)
+	{
+		std::uniform_real_distribution<float> distribution(min, max);
+		return distribution(generator);
+	}
+
+	std::mt19937 generator;
+};
+
+RNG gPerThreadRng[PROGRAM_THREAD_COUNT];
 
 #define LOCAL_THREAD_ID (gThreadIdMap[GetCurrentThreadId()])
 // #define LOCAL_THREAD_ID 0
