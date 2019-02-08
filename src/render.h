@@ -112,14 +112,21 @@ V4 ComputeRadiance(Ray ray, Scene * scene, int depth, int bounce)
 		// indirect
 		if(bounce < MAX_DIFFUSE_BOUNCES/* && ray.d.y < 0*/)
 		{
+			Ray secondaryRays[SECONDARY_RAYS];
 			for(int i = 0; i < SECONDARY_RAYS; ++i)
 			{
 				V3 diffDir = RandomDirectionOnHemisphere(ix.normal);
-				Ray diffRay = {ix.point, diffDir};
-				V4 sampledRadiance = ComputeRadiance(diffRay, scene, depth, bounce+1);
-				float cosTheta = Dot(ix.normal, diffDir);
-				diffuseRadiance += ComponentMultiply(mat->diffuse / PI, sampledRadiance * cosTheta);
+				secondaryRays[i] = {ix.point, diffDir};
 			}
+
+			for(int i = 0; i < SECONDARY_RAYS; ++i)
+			{
+				V4 sampledRadiance = ComputeRadiance(secondaryRays[i], scene, depth, bounce+1);
+				float cosTheta = Dot(ix.normal, secondaryRays[i].d);
+				diffuseRadiance += sampledRadiance * cosTheta;
+			}
+
+			diffuseRadiance = ComponentMultiply(mat->diffuse / PI, diffuseRadiance);
 			diffuseRadiance = diffuseRadiance / SECONDARY_RAYS;
 		}
 
