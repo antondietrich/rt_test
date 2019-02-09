@@ -503,7 +503,7 @@ union M3x3
 		return result;
 	}
 
-	static M3x3 Transpose(M3x3 & M)
+	static M3x3 Transpose(const M3x3 & M)
 	{
 		M3x3 result = {
 			M.m00, M.m10, M.m20,
@@ -543,7 +543,7 @@ union M4x4
 		return result;
 	}
 
-	static M4x4 Transpose(M4x4 & M)
+	static M4x4 Transpose(const M4x4 & M)
 	{
 		M4x4 result = {
 			M.m00, M.m10, M.m20, M.m30,

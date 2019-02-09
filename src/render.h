@@ -1,9 +1,9 @@
 #pragma once
 
 #define SAMPLES_PER_PIXEL 1
-#define MAX_REFLECTION_DEPTH 1
-#define MAX_DIFFUSE_BOUNCES 1
-#define SECONDARY_RAYS 32
+#define MAX_REFLECTION_DEPTH 0
+#define MAX_DIFFUSE_BOUNCES 2
+#define SECONDARY_RAYS 10*10
 
 
 V2 sampleGrid[][8] = {
@@ -46,7 +46,7 @@ struct Viewport
 void PutPixel(V4 * bitmap, int x, int y, V4 color)
 {
 // PROFILED_FUNCTION;
-	bitmap[y*1280 + x] = color;
+	bitmap[y*WIDTH + x] = color;
 }
 
 V4 Schlick(V4 rf0, float cosTheta)
@@ -121,13 +121,24 @@ V4 ComputeRadiance(Ray ray, Scene * scene, int depth, int bounce)
 		if(bounce < MAX_DIFFUSE_BOUNCES/* && ray.d.y < 0*/)
 		{
 			Ray secondaryRays[SECONDARY_RAYS];
-			for(int i = 0; i < SECONDARY_RAYS; ++i)
+			V3 samples[SECONDARY_RAYS];
+			//uint sampleCount = GetUniformSamplesOnHemisphere(SECONDARY_RAYS, samples);
+			uint sampleCount = 0;
+			sampleCount = GetJitteredSamplesOnHemisphere(SECONDARY_RAYS, samples);
+			//sampleCount = GetRandomSamplesOnHemisphere(SECONDARY_RAYS, samples);
+			//uint sampleCount = GetRandomSamplesOnHemisphere(SECONDARY_RAYS, samples);
+			// uint sampleCount = SECONDARY_RAYS;
+			for(uint i = 0; i < sampleCount; ++i)
 			{
-				V3 diffDir = RandomDirectionOnHemisphere(ix.normal);
-				secondaryRays[i] = {ix.point, diffDir};
+				V3 transformedDir = RotateSample(samples[i], ix.normal);
+
+				// transformedDir = Normalize(transformedDir);
+				// transformedDir = RandomDirectionOnHemisphere(ix.normal);
+
+				secondaryRays[i] = {ix.point, transformedDir};
 			}
 
-			for(int i = 0; i < SECONDARY_RAYS; ++i)
+			for(uint i = 0; i < sampleCount; ++i)
 			{
 				V4 sampledRadiance = ComputeRadiance(secondaryRays[i], scene, depth, bounce+1);
 				float cosTheta = Dot(ix.normal, secondaryRays[i].d);
@@ -135,7 +146,7 @@ V4 ComputeRadiance(Ray ray, Scene * scene, int depth, int bounce)
 			}
 
 			diffuseRadiance = ComponentMultiply(mat->diffuse / PI, diffuseRadiance);
-			diffuseRadiance = diffuseRadiance / SECONDARY_RAYS;
+			diffuseRadiance = diffuseRadiance / (float)sampleCount;
 		}
 
 		// direct

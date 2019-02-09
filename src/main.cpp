@@ -21,7 +21,9 @@ typedef uint32_t	uint;
 uint8 gThreadCounter = 0;
 uint8 gThreadIdMap[1<<16];
 
-#define SAMPLE_VIEWER 1
+#define WIDTH 1280/2
+#define HEIGHT 768/2
+#define SAMPLE_VIEWER 0
 
 struct RNG
 {
@@ -54,9 +56,6 @@ RNG gPerThreadRng[PROGRAM_THREAD_COUNT];
 #include "render.h"
 #include "threading.h"
 
-
-#define WIDTH 1280
-#define HEIGHT 768
 
 
 bool running = true;
@@ -187,10 +186,9 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 	memset(bitmapHDR, 0, sizeof(V4)*WIDTH*HEIGHT);
 	V4 * rowHDR = bitmapHDR;
 
-	const int xSubdivs = 20;
-	const int ySubdivs = 12;
-	int bucketW = WIDTH / xSubdivs;
-	int bucketH = HEIGHT / ySubdivs;
+	const uint bucketWidth = 64;
+	const int xSubdivs = WIDTH % bucketWidth == 0 ? WIDTH / bucketWidth : WIDTH / bucketWidth + 1;
+	const int ySubdivs = HEIGHT % bucketWidth == 0 ? HEIGHT / bucketWidth : HEIGHT / bucketWidth + 1;
 	JobQueue jobqueue;
 
 	int jobIndex = 0;
@@ -204,10 +202,27 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 			job.camera = &cam;
 			job.viewportWidth = WIDTH;
 			job.viewportHeight = HEIGHT;
-			job.x0 = xs * bucketW;
-			job.x1 = xs * bucketW + bucketW;
-			job.y0 = ys * bucketH;
-			job.y1 = ys * bucketH + bucketH;
+			if(xs == xSubdivs - 1)
+			{
+				job.x0 = xs * bucketWidth;
+				job.x1 = WIDTH;
+			}
+			else
+			{
+				job.x0 = xs * bucketWidth;
+				job.x1 = xs * bucketWidth + bucketWidth;
+			}
+
+			if(ys == ySubdivs - 1)
+			{
+				job.y0 = ys * bucketWidth;
+				job.y1 = HEIGHT;
+			}
+			else
+			{
+				job.y0 = ys * bucketWidth;
+				job.y1 = ys * bucketWidth + bucketWidth;
+			}
 			job.spp = SAMPLES_PER_PIXEL;
 			jobqueue.Push(job);
 		}
@@ -290,10 +305,24 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 	QueryPerformanceCounter(&last);
 
 #if SAMPLE_VIEWER
-	const uint sampleCount = 1000;
-	V3 samples[sampleCount];
-	// GetRandomSamplesOnHemisphere(sampleCount, samples);
-	GetRandomSamplesInUnitCube(sampleCount, samples);
+	const uint requestedSampleCount = 100;
+	V3 samples[requestedSampleCount];
+	memset(samples, 0, sizeof(V3)*requestedSampleCount);
+	//const uint sampleCount = GetRandomSamplesOnDisk(requestedSampleCount, samples);
+	//const uint sampleCount = GetRandomSamplesInUnitCube(requestedSampleCount, samples);
+	//const uint sampleCount = GetUniformSamplesOnSquare(requestedSampleCount, samples);
+	//const uint sampleCount = GetUniformSamplesOnDisk(requestedSampleCount, samples);
+	//const uint sampleCount = GetRandomSamplesOnHemisphere(requestedSampleCount, samples);
+	//const uint sampleCount = GetUniformSamplesOnHemisphere(requestedSampleCount, samples);
+	//const uint sampleCount = GetJitteredSamplesOnSquare(requestedSampleCount, samples);
+	//const uint sampleCount = GetJitteredSamplesOnDisk(requestedSampleCount, samples);
+	const uint sampleCount = GetJitteredSamplesOnHemisphere(requestedSampleCount, samples);
+	for(uint i = 0; i < sampleCount; ++i)
+	{
+		//samples[i] = RotateSample(samples[i], Normalize(V3{0.99f, 0.01f, 0}));
+		//samples[i] = RotateSample(samples[i], Normalize(V3{0.01f, 0.99f, 0}));
+		//samples[i] = RotateSample(samples[i], Normalize(V3{0.5f, 0.5f, 0}));
+	}
 #endif
 
 	MSG msg = {0};
@@ -317,6 +346,7 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 		}
 #else
 		memset(bitmap, 0, WIDTH*HEIGHT*sizeof(uint32));
+
 		float aspect = (float)WIDTH / HEIGHT;
 		float viewX = cos(DegToRad(angle));
 		float viewY = sin(DegToRad(angle));
@@ -345,6 +375,26 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 		viewport[1] = {WIDTH/2 + 1, 0, WIDTH/2, HEIGHT/2};
 		viewport[2] = {0, HEIGHT/2 + 1, WIDTH/2, HEIGHT/2};
 		viewport[3] = {WIDTH/2 + 1, HEIGHT/2 + 1, WIDTH/2, HEIGHT/2};
+
+		V3 min = V3{-1.0f, -1.0f, -1.0f};
+		V3 max = V3{1.0f, 1.0f, 1.0f};
+		min = vp[0] * min;
+		max = vp[0] * max;
+		int minx = (int)floor( (min.x*0.5f + 0.5f) * viewport[0].w + viewport[0].x);
+		int miny = (int)floor(-(min.y*0.5f - 0.5f) * viewport[0].h + viewport[0].y);
+		int maxx = (int)floor( (max.x*0.5f + 0.5f) * viewport[0].w + viewport[0].x);
+		int maxy = (int)floor(-(max.y*0.5f - 0.5f) * viewport[0].h + viewport[0].y);
+
+		for(int x = 0; x < WIDTH; ++x)
+		{
+			bitmap[(HEIGHT/4)*WIDTH + Clamp(x, 0, WIDTH/2)] = RGBA32(1.0f, 0.0f, 0.0f, 1.0f);
+			bitmap[Clamp(x, 0, HEIGHT/2)*WIDTH + WIDTH/4] = RGBA32(0.0f, 1.0f, 0.0f, 1.0f);
+
+			bitmap[miny*WIDTH + Clamp(x, minx, maxx)] = RGBA32(0.5f, 0.5f, 0.5f, 1.0f);
+			bitmap[maxy*WIDTH + Clamp(x, minx, maxx)] = RGBA32(0.5f, 0.5f, 0.5f, 1.0f);
+			bitmap[Clamp(x, maxy, miny)*WIDTH + minx] = RGBA32(0.5f, 0.5f, 0.5f, 1.0f);
+			bitmap[Clamp(x, maxy, miny)*WIDTH + maxx] = RGBA32(0.5f, 0.5f, 0.5f, 1.0f);
+		}
 
 		for(uint viewIndex = 0; viewIndex < 4; viewIndex++)
 		{
