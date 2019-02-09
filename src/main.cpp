@@ -21,6 +21,8 @@ typedef uint32_t	uint;
 uint8 gThreadCounter = 0;
 uint8 gThreadIdMap[1<<16];
 
+#define SAMPLE_VIEWER 1
+
 struct RNG
 {
 	RNG(int seed = 1147987)
@@ -45,6 +47,7 @@ RNG gPerThreadRng[PROGRAM_THREAD_COUNT];
 #include "profile.h"
 #include "math.h"
 #include "geometry.h"
+#include "sampler.h"
 #include "camera.h"
 #include "object.h"
 #include "scene.h"
@@ -67,7 +70,7 @@ HFONT fontMono;
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 BITMAPINFO bmpinfo = {0};
-uint8_t * bitmap = nullptr;
+uint32 * bitmap = nullptr;
 V4 * bitmapHDR = nullptr;
 
 
@@ -130,23 +133,25 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 	bmpinfo.bmiHeader.biSizeImage = WIDTH * HEIGHT * 4;
 
 
-	bitmap = new uint8_t[WIDTH * HEIGHT * 4];
-	memset(bitmap, 0, WIDTH * HEIGHT * 4);
-	uint32_t * row = (uint32_t*)bitmap;
+	bitmap = new uint32[WIDTH * HEIGHT];
+	memset(bitmap, 0, WIDTH * HEIGHT * sizeof(uint32));
+#if 0
+	uint32 * row = bitmap;
 	for(int y = 0; y < HEIGHT; ++y)
 	{
 		for(int x = 0; x < WIDTH; ++x)
 		{
 			float r, g, b, a;
-			r = x < 640 ? 0.0f : 1.0f;
-			g = y < 400 ? 0.0f : 1.0f;
+			r = x < WIDTH/2 ? 0.0f : 1.0f;
+			g = y < HEIGHT/2 ? 0.0f : 1.0f;
 			b = 0.0f;
 			a = 1.0f;
-			uint32_t color = RGBA32(r, g, b, a);
+			uint32 color = RGBA32(r, g, b, a);
 			*(row + x) = color;
 		}
 		row += WIDTH;
 	}
+#endif
 
 	InitProfiler();
 	InitScene();
@@ -176,6 +181,8 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 	cam.focalLength = 0.35f;
 #endif
 
+
+#if !SAMPLE_VIEWER
 	bitmapHDR = new V4[WIDTH*HEIGHT];
 	memset(bitmapHDR, 0, sizeof(V4)*WIDTH*HEIGHT);
 	V4 * rowHDR = bitmapHDR;
@@ -246,7 +253,9 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 		);
 		gThreadIdMap[taskpool[i].systemId] = gThreadCounter++;
 	}
+#else
 
+#endif
 
 #if 0
 	row = (uint32_t*)bitmap;
@@ -271,12 +280,21 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 	InvalidateRect(window, &clientRect, false);
 
 	double elapsedS = 0.0;
+	double deltams = 0.0;
+	float angle = 0.0f;
 	LARGE_INTEGER freq;
 	QueryPerformanceFrequency(&freq); // counts per sec
 	uint64 countsPerSec = freq.QuadPart;
 	LARGE_INTEGER now;
 	LARGE_INTEGER last;
 	QueryPerformanceCounter(&last);
+
+#if SAMPLE_VIEWER
+	const uint sampleCount = 1000;
+	V3 samples[sampleCount];
+	// GetRandomSamplesOnHemisphere(sampleCount, samples);
+	GetRandomSamplesInUnitCube(sampleCount, samples);
+#endif
 
 	MSG msg = {0};
 	while(running)
@@ -290,13 +308,58 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 			DispatchMessage(&msg);
 		}
 
+#if !SAMPLE_VIEWER
 		if(!renderFinished && WAIT_OBJECT_0 == WaitForMultipleObjects(RENDER_THREAD_COUNT, threadpool, true, 0))
 		{
 			uint64 renderEndTime = GetHiresTime();
 			renderTime = (double)(renderEndTime - renderStartTime) / countsPerSec;
 			renderFinished = true;
 		}
+#else
+		memset(bitmap, 0, WIDTH*HEIGHT*sizeof(uint32));
+		float aspect = (float)WIDTH / HEIGHT;
+		float viewX = cos(DegToRad(angle));
+		float viewY = sin(DegToRad(angle));
+		angle += 16.6f * (10.0f / 1000.0f);
 
+		M4x4 view[4];
+		view[0] = M4x4::ViewRH(V3{0, 0, 0}, V3{0, 0, -1}, V3{0, 1, 0});
+		view[1] = M4x4::ViewRH(V3{0, 0, 0}, V3{0, 1, 0}, V3{0, 0, 1});
+		view[2] = M4x4::ViewRH(V3{0, 0, 0}, V3{-1, 0, 0}, V3{0, 0, 1});
+		view[3] = M4x4::ViewRH(V3{0, 0, 0}, V3{viewX, viewY, 0}, V3{0, 0, 1});
+
+		M4x4 proj[4];
+		proj[0] = M4x4::OrthographicRH(2.2f*aspect, 2.2f, -5.0f, 5.0f);
+		proj[1] = M4x4::OrthographicRH(2.2f*aspect, 2.2f, -5.0f, 5.0f);
+		proj[2] = M4x4::OrthographicRH(2.2f*aspect, 2.2f, -5.0f, 5.0f);
+		proj[3] = M4x4::OrthographicRH(2.2f*aspect, 2.2f, -5.0f, 5.0f);
+
+		M4x4 vp[4];
+		vp[0] = proj[0] * view[0];
+		vp[1] = proj[1] * view[1];
+		vp[2] = proj[2] * view[2];
+		vp[3] = proj[3] * view[3];
+
+		Viewport viewport[4];
+		viewport[0] = {0, 0, WIDTH/2, HEIGHT/2};
+		viewport[1] = {WIDTH/2 + 1, 0, WIDTH/2, HEIGHT/2};
+		viewport[2] = {0, HEIGHT/2 + 1, WIDTH/2, HEIGHT/2};
+		viewport[3] = {WIDTH/2 + 1, HEIGHT/2 + 1, WIDTH/2, HEIGHT/2};
+
+		for(uint viewIndex = 0; viewIndex < 4; viewIndex++)
+		{
+			for(uint i = 0; i < sampleCount; ++i)
+			{
+				V3 projectedSample = vp[viewIndex]*samples[i];
+				int x = (int)floor( (projectedSample.x*0.5f + 0.5f) * viewport[viewIndex].w + viewport[viewIndex].x);
+				int y = (int)floor(-(projectedSample.y*0.5f - 0.5f) * viewport[viewIndex].h + viewport[viewIndex].y);
+				x = Clamp(x, 0, WIDTH);
+				y = Clamp(y, 0, HEIGHT);
+				uint32 color = RGBA32(1.0f, 1.0f, 1.0f, 1.0f);
+				bitmap[y * WIDTH + x] = color;
+			}
+		}
+#endif
 
 		QueryPerformanceCounter(&now);
 		long long elapsedCounts = now.QuadPart - last.QuadPart;
@@ -309,7 +372,7 @@ int __stdcall WinMain(HINSTANCE inst, HINSTANCE pinst, LPSTR cmdline, int cmdsho
 		InvalidateRect(window, &clientRect, false);
 		++frameCount;
 
-		double deltams = (double)elapsedCounts / countsPerSec / 1000.0;
+		deltams = (double)elapsedCounts / countsPerSec / 1000.0;
 		if(deltams < 16.6667)
 		{
 			Sleep((DWORD)(16.6667 - deltams));
@@ -336,7 +399,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			if(renderStarted)
 			{
-				uint32_t * row = (uint32_t*)bitmap;
+				uint32 * row = bitmap;
 				for(int y = 0; y < HEIGHT; ++y)
 				{
 					for(int x = 0; x < WIDTH; ++x)
@@ -359,7 +422,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 							sample.g = (float)pow(sample.g, 0.45f);
 							sample.b = (float)pow(sample.b, 0.45f);
 						}
-						uint32_t color = RGBA32(sample.r, sample.g, sample.b, sample.a);
+						uint32 color = RGBA32(sample.r, sample.g, sample.b, sample.a);
 						*(row + x) = color;
 					}
 					row += WIDTH;

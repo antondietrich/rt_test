@@ -30,10 +30,18 @@ V2 sampleGrid[][8] = {
 
 };
 
-#define RGBA32(r, g, b, a)  ((((int)(a*255) & 0xff) << 24) |		\
+#define RGBA32(r, g, b, a)  (uint32)((((int)(a*255) & 0xff) << 24) |		\
 							 (((int)(r*255) & 0xff) << 16) |		\
 							 (((int)(g*255) & 0xff) << 8)  |		\
 							 (((int)(b*255) & 0xff) << 0))
+
+struct Viewport
+{
+	float x; // top left corner
+	float y; // top left corner
+	float w;
+	float h;
+};
 
 void PutPixel(V4 * bitmap, int x, int y, V4 color)
 {
