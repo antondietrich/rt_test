@@ -33,6 +33,8 @@ struct AsyncTask
 	JobQueue * jobQueue;
 };
 
+// struct List
+
 void PerformRenderJob(RenderJob * job)
 {
 PROFILED_FUNCTION;
@@ -40,36 +42,53 @@ PROFILED_FUNCTION;
 	gPerThreadRng[LOCAL_THREAD_ID] = RNG(job->y0 * 11239 + job->x0);
 	float mpp = job->camera->filmWidth / job->viewportWidth;
 
-
-	//V4 * rowHDR = job->bitmap;
+	V2i * pixels = new V2i[(job->y1 - job->y0) * (job->x1 - job->x0)];
+	int pixelCount = 0;
 	for(int y = job->y0; y < job->y1; ++y)
 	{
 		for(int x = job->x0; x < job->x1; ++x)
 		{
-			V4 outgoingRadiance = {};
-
-			for(int s = 0; s < job->spp; ++s)
-			{
-				V2 sampleOffset = sampleGrid[job->spp][s];
-				V3 camRight = -Cross(job->camera->direction, job->camera->up);
-				V3 target = job->camera->position + job->camera->direction*job->camera->focalLength + camRight*(x - job->viewportWidth/2 + sampleOffset.x)*mpp + -job->camera->up*(y - job->viewportHeight/2 + sampleOffset.y)*mpp;
-				V3 dir = Normalize(target - job->camera->position);
-
-				Ray ray = {0};
-				ray.o = job->camera->position;
-				ray.d = dir;
-
-				V4 sampleRadiance = ComputeRadiance(ray, &scene, 0, 0);
-				outgoingRadiance = outgoingRadiance + sampleRadiance;
-			}
-
-			outgoingRadiance = outgoingRadiance / (float)job->spp;
-			//*(rowHDR + x) =
-			PutPixel(job->bitmap, x, y, outgoingRadiance);
+			pixels[pixelCount++] = V2i{x, y};
 		}
-		//rowHDR += job->viewportWidth;
-		// Sleep(1);
 	}
+
+	for(int i = 0; i < pixelCount*2; ++i)
+	{
+		int index1 = (int)Random(0.0f, (float)pixelCount);
+		int index2 = (int)Random(0.0f, (float)pixelCount);
+		V2i temp = pixels[index1];
+		pixels[index1] = pixels[index2];
+		pixels[index2] = temp;
+	}
+
+	//V4 * rowHDR = job->bitmap;
+	for(int i = 0; i < pixelCount; ++i)
+	{
+		int x = pixels[i].x;
+		int y = pixels[i].y;
+		V4 outgoingRadiance = {};
+
+		for(int s = 0; s < job->spp; ++s)
+		{
+			V2 sampleOffset = sampleGrid[job->spp][s];
+			V3 camRight = -Cross(job->camera->direction, job->camera->up);
+			V3 target = job->camera->position + job->camera->direction*job->camera->focalLength + camRight*(x - job->viewportWidth/2 + sampleOffset.x)*mpp + -job->camera->up*(y - job->viewportHeight/2 + sampleOffset.y)*mpp;
+			V3 dir = Normalize(target - job->camera->position);
+
+			Ray ray = {0};
+			ray.o = job->camera->position;
+			ray.d = dir;
+
+			V4 sampleRadiance = ComputeRadiance(ray, &scene, 0, 0);
+			outgoingRadiance = outgoingRadiance + sampleRadiance;
+		}
+
+		outgoingRadiance = outgoingRadiance / (float)job->spp;
+		//*(rowHDR + x) =
+		PutPixel(job->bitmap, x, y, outgoingRadiance);
+	}
+
+	delete[] pixels;
 }
 
 DWORD WINAPI RenderThreadFunc(LPVOID param)

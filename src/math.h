@@ -103,6 +103,19 @@ union V2
 	};
 };
 
+union V2i
+{
+	struct
+	{
+		int32 x, y;
+	};
+	int32 a[2];
+	int32 operator[](int i) {
+		assert(i >= 0 && i < 2);
+		return a[i];
+	};
+};
+
 V2 operator-(V2 & v)
 {
 	V2 result = {-v.x, -v.y};
