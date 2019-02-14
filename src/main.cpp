@@ -21,8 +21,8 @@ typedef uint32_t	uint;
 uint8 gThreadCounter = 0;
 uint8 gThreadIdMap[1<<16];
 
-#define WIDTH 1280/2
-#define HEIGHT 768/2
+#define WIDTH (1280/2)
+#define HEIGHT (768/2)
 #define SAMPLE_VIEWER 0
 
 struct RNG
